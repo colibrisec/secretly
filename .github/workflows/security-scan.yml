@@ -62,12 +62,19 @@ jobs:
     - name: Run npm audit
       run: npm audit --audit-level=moderate
 
-    - name: Run Snyk to check for vulnerabilities
-      uses: snyk/actions/node@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    - name: Run Trivy vulnerability scanner on dependencies
+      uses: aquasecurity/trivy-action@master
       with:
-        args: --severity-threshold=medium
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-deps-results.sarif'
+        scanners: 'vuln'
+
+    - name: Upload Trivy dependency scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-deps-results.sarif'
 
   secrets-scan:
     name: Secret Detection
@@ -78,11 +85,33 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Run Gitleaks
-      uses: gitleaks/gitleaks-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+    - name: Run Trivy secret scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-secrets-results.sarif'
+        scanners: 'secret'
+
+    - name: Upload Trivy secret scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-secrets-results.sarif'
+
+    - name: Run Trivy configuration scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-config-results.sarif'
+        scanners: 'config'
+
+    - name: Upload Trivy config scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-config-results.sarif'
 
   helm-security:
     name: Helm Security Scan
