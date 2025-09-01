@@ -88,11 +88,11 @@ jobs:
         platforms: linux/amd64,linux/arm64
 
     - name: Upload Trivy vulnerability results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-vuln-results.sarif'
 
     - name: Upload Trivy secret results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-secret-results.sarif'
