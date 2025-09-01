@@ -25,9 +25,9 @@ FROM node:20-alpine
 # Install runtime dependencies with pinned versions
 RUN apk add --no-cache dumb-init=1.2.5-r3 python3=3.12.11-r0 make=4.4.1-r3 g++=14.2.0-r6
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# Create non-root user with high UID for security
+RUN addgroup -g 10001 -S nodejs && \
+    adduser -S nodejs -u 10001
 
 WORKDIR /app
 

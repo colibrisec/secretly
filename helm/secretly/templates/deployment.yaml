@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "secretly.fullname" . }}
+  namespace: {{ .Values.namespace | default "secretly" }}
   labels:
     {{- include "secretly.labels" . | nindent 4 }}
 spec:
@@ -27,8 +28,17 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "secretly.serviceAccountName" . }}
+      automountServiceAccountToken: false
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+        {{- with .Values.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.initContainers }}
       initContainers:
         {{- toYaml . | nindent 8 }}
@@ -36,7 +46,19 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+            {{- with .Values.securityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -64,34 +86,17 @@ spec:
             successThreshold: {{ .Values.healthcheck.readiness.successThreshold }}
           {{- end }}
           env:
-            # Slack Configuration
-            - name: SLACK_BOT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "secretly.fullname" . }}
-                  key: slack-bot-token
-            - name: SLACK_APP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "secretly.fullname" . }}
-                  key: slack-app-token
-            - name: SLACK_SIGNING_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "secretly.fullname" . }}
-                  key: slack-signing-secret
+            # Slack Configuration (from file-mounted secrets)
+            - name: SLACK_BOT_TOKEN_FILE
+              value: "/etc/secrets/slack/bot-token"
+            - name: SLACK_APP_TOKEN_FILE
+              value: "/etc/secrets/slack/app-token"
+            - name: SLACK_SIGNING_SECRET_FILE
+              value: "/etc/secrets/slack/signing-secret"
             
-            # Security Configuration
-            - name: ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.security.existingSecret }}
-                  name: {{ .Values.security.existingSecret }}
-                  key: {{ .Values.security.existingSecretKey }}
-                  {{- else }}
-                  name: {{ include "secretly.fullname" . }}
-                  key: encryption-key
-                  {{- end }}
+            # Security Configuration (from file-mounted secrets)
+            - name: ENCRYPTION_KEY_FILE
+              value: "/etc/secrets/security/encryption-key"
             
             # Database Configuration
             {{- if or .Values.postgresql.enabled (not .Values.externalDatabase.enabled) }}
@@ -180,6 +185,12 @@ spec:
               mountPath: /tmp
             - name: logs
               mountPath: /app/logs
+            - name: slack-secrets
+              mountPath: /etc/secrets/slack
+              readOnly: true
+            - name: security-secrets
+              mountPath: /etc/secrets/security
+              readOnly: true
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -195,6 +206,22 @@ spec:
           emptyDir: {}
         - name: logs
           emptyDir: {}
+        - name: slack-secrets
+          secret:
+            secretName: {{ include "secretly.fullname" . }}
+            items:
+              - key: slack-bot-token
+                path: bot-token
+              - key: slack-app-token
+                path: app-token
+              - key: slack-signing-secret
+                path: signing-secret
+        - name: security-secrets
+          secret:
+            secretName: {{ include "secretly.fullname" . }}
+            items:
+              - key: encryption-key
+                path: encryption-key
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
