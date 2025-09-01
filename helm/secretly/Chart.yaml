@@ -17,11 +17,11 @@ maintainers:
     email: admin@colibrisec.com
 dependencies:
   - name: postgresql
-    version: 13.x.x
+    version: "13.2.24"
     repository: https://charts.bitnami.com/bitnami
     condition: postgresql.enabled
   - name: redis
-    version: 18.x.x
+    version: "18.4.0"
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
 annotations:

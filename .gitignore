@@ -56,3 +56,7 @@ temp/
 # OS files
 Thumbs.db
 Desktop.ini
+
+# Helm
+helm/*/charts/
+helm/*/Chart.lock

@@ -36,6 +36,11 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.6.1
 
+      - name: Update chart dependencies
+        run: |
+          cd helm/secretly
+          helm dependency update
+
       - name: Run chart-testing (list)
         run: ct list-changed --config .github/ct.yaml
 
@@ -93,6 +98,11 @@ jobs:
 
       - name: Package and Push Helm Chart
         run: |
+          # Update dependencies
+          cd helm/secretly
+          helm dependency update
+          cd ../..
+          
           # Package the chart
           helm package helm/secretly
 
