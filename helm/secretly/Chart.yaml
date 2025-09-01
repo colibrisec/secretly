@@ -1,0 +1,29 @@
+apiVersion: v2
+name: secretly
+description: A Helm chart for Secretly - Slack Security Bot
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - slack
+  - security
+  - bot
+  - data-protection
+home: https://github.com/colibrisec/secretly
+sources:
+  - https://github.com/colibrisec/secretly
+maintainers:
+  - name: Colibri Security
+    email: admin@colibrisec.com
+dependencies:
+  - name: postgresql
+    version: 13.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 18.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+annotations:
+  category: Security
+  licenses: MIT

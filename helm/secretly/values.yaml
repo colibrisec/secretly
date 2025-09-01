@@ -1,0 +1,292 @@
+# Default values for secretly.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/colibrisec/secretly
+  pullPolicy: IfNotPresent
+  tag: ""  # Overrides the image tag whose default is the chart appVersion.
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: secretly.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: secretly-tls
+  #    hosts:
+  #      - secretly.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - secretly
+          topologyKey: kubernetes.io/hostname
+
+# Slack Configuration
+slack:
+  botToken: ""  # Required: xoxb-your-bot-token
+  appToken: ""  # Required: xapp-your-app-token
+  signingSecret: ""  # Required: your-signing-secret
+
+# Security Configuration
+security:
+  encryptionKey: ""  # Required: Must be at least 32 characters
+  existingSecret: ""  # Name of existing secret containing encryption key
+  existingSecretKey: "encryption-key"
+
+# Application Configuration
+config:
+  nodeEnv: "production"
+  port: 3000
+  logLevel: "info"
+  
+  # Feature Flags
+  features:
+    creditCardDetection: true
+    ssnDetection: true
+    apiKeyDetection: true
+    passwordDetection: true
+    piiDetection: true
+  
+  # Rate Limiting
+  rateLimits:
+    perUser: 10
+    perChannel: 100
+    global: 1000
+  
+  # Data Retention (days)
+  retention:
+    obfuscationRecordTTL: 30
+    auditLogTTL: 90
+
+# PostgreSQL Configuration
+postgresql:
+  enabled: true
+  auth:
+    username: secretly_user
+    password: secretly_password  # Change in production
+    database: secretly
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      limits:
+        memory: 256Mi
+        cpu: 250m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+# Redis Configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: secretly_redis_password  # Change in production
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      limits:
+        memory: 128Mi
+        cpu: 100m
+      requests:
+        memory: 64Mi
+        cpu: 50m
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+# External Database (if not using included PostgreSQL)
+externalDatabase:
+  enabled: false
+  host: ""
+  port: 5432
+  database: secretly
+  username: secretly_user
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: "password"
+  sslMode: require
+
+# External Redis (if not using included Redis)
+externalRedis:
+  enabled: false
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: "password"
+
+# Health checks
+healthcheck:
+  enabled: true
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    path: /metrics
+    labels: {}
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: secretly
+  egress:
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: postgresql
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: redis
+    - ports:
+      - protocol: TCP
+        port: 443  # For Slack API
+      - protocol: TCP
+        port: 53   # For DNS
+      - protocol: UDP
+        port: 53   # For DNS
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Priority Class
+priorityClassName: ""
+
+# Lifecycle hooks
+lifecycle: {}
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "sleep 15"]
+
+# Extra environment variables
+extraEnvVars: []
+  # - name: EXTRA_VAR
+  #   value: "extra_value"
+
+# Extra environment variables from secrets or configmaps
+extraEnvVarsSecret: ""
+extraEnvVarsConfigMap: ""
+
+# Extra volumes
+extraVolumes: []
+  # - name: extra-volume
+  #   configMap:
+  #     name: extra-configmap
+
+# Extra volume mounts
+extraVolumeMounts: []
+  # - name: extra-volume
+  #   mountPath: /extra
+  #   readOnly: true
+
+# Init containers
+initContainers: []
+  # - name: init-myservice
+  #   image: busybox:1.35
+  #   command: ['sh', '-c', "until nslookup myservice.namespace.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+
+# Sidecar containers
+sidecars: []
+  # - name: sidecar
+  #   image: sidecar:latest
+  #   ports:
+  #     - containerPort: 8080

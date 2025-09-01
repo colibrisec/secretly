@@ -1,0 +1,85 @@
+# Staging environment values for secretly
+# Production-like configuration with reduced resources
+
+replicaCount: 2
+
+image:
+  pullPolicy: Always
+  tag: "staging"
+
+config:
+  nodeEnv: "staging"
+  logLevel: "info"
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 384Mi
+  requests:
+    cpu: 150m
+    memory: 192Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
+
+postgresql:
+  auth:
+    password: "staging_password_change_me"
+  primary:
+    persistence:
+      size: 5Gi
+    resources:
+      limits:
+        memory: 256Mi
+        cpu: 200m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+
+redis:
+  auth:
+    password: "staging_redis_password_change_me"
+  master:
+    persistence:
+      size: 2Gi
+    resources:
+      limits:
+        memory: 128Mi
+        cpu: 100m
+      requests:
+        memory: 64Mi
+        cpu: 50m
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: secretly-staging.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: secretly-staging-tls
+      hosts:
+        - secretly-staging.example.com
+
+# Enable monitoring in staging
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Network policy enabled for security testing
+networkPolicy:
+  enabled: true
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 import { logger } from '../utils/logger';
 
 export class DatabaseService {
-  private pool: Pool;
+  public pool: Pool;
 
   constructor(connectionString: string) {
     this.pool = new Pool({

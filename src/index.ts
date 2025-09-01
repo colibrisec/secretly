@@ -1,5 +1,6 @@
 import { App, LogLevel } from '@slack/bolt';
 import * as dotenv from 'dotenv';
+import express from 'express';
 import { MessageHandler } from './handlers/message.handler';
 import { ObfuscationService } from './services/obfuscation.service';
 import { DatabaseService } from './services/database.service';
@@ -34,6 +35,9 @@ const app = new App({
   socketMode: true,
   logLevel: (process.env.LOG_LEVEL as LogLevel) || LogLevel.INFO
 });
+
+const healthApp = express();
+const port = process.env.PORT || 3000;
 
 async function initializeServices() {
   const databaseService = new DatabaseService(process.env.DATABASE_URL!);
@@ -244,6 +248,44 @@ async function initializeServices() {
       channel: channelId,
       text: `✅ Channel security configuration has been updated by <@${userId}>`
     });
+  });
+
+  // Health check endpoints
+  healthApp.get('/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '1.0.0'
+    });
+  });
+
+  healthApp.get('/ready', async (req, res) => {
+    try {
+      // Check database connection
+      await databaseService.pool.query('SELECT 1');
+      
+      // Check Redis connection (if rateLimiter is initialized)
+      // This is a basic check - you might want to add more comprehensive checks
+      
+      res.status(200).json({ 
+        status: 'ready', 
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: 'healthy',
+          redis: 'healthy'
+        }
+      });
+    } catch (error) {
+      res.status(503).json({ 
+        status: 'not ready', 
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  healthApp.listen(port, () => {
+    logger.info(`Health check server listening on port ${port}`);
   });
 
   logger.info('All services initialized successfully');

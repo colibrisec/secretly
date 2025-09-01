@@ -1,0 +1,136 @@
+name: Release Helm Chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'helm/secretly/**'
+      - '.github/workflows/helm-release.yml'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          check-latest: true
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      - name: Run chart-testing (list)
+        run: ct list --target-branch ${{ github.event.repository.default_branch }}
+
+      - name: Run chart-testing (lint)
+        run: ct lint --target-branch ${{ github.event.repository.default_branch }}
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.9.0
+
+      - name: Run chart-testing (install)
+        run: |
+          # Create test values with dummy secrets
+          cat > test-values.yaml << EOF
+          slack:
+            botToken: "xoxb-test-token"
+            appToken: "xapp-test-token"
+            signingSecret: "test-signing-secret"
+          security:
+            encryptionKey: "test-encryption-key-32-characters"
+          postgresql:
+            enabled: true
+          redis:
+            enabled: true
+          EOF
+          
+          ct install --target-branch ${{ github.event.repository.default_branch }} \
+            --helm-extra-set-args "--values=test-values.yaml"
+
+  release:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and Push Helm Chart
+        run: |
+          # Package the chart
+          helm package helm/secretly
+
+          # Push to OCI registry
+          helm push secretly-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+
+      - name: Create GitHub Release for Chart
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: secretly-*.tgz
+          generate_release_notes: true
+
+  update-index:
+    needs: release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: helm
+          config: .github/ct.yaml
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_RELEASE_NAME_TEMPLATE: "helm-chart-{{ .Version }}"

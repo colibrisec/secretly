@@ -1,0 +1,160 @@
+# Production environment values for secretly
+# High availability and security configuration
+
+replicaCount: 3
+
+image:
+  pullPolicy: IfNotPresent
+  tag: "stable"
+
+config:
+  nodeEnv: "production"
+  logLevel: "warn"
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
+
+# Use external managed databases in production
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+externalDatabase:
+  enabled: true
+  host: "postgres.example.com"
+  port: 5432
+  database: "secretly_prod"
+  username: "secretly_prod_user"
+  existingSecret: "secretly-prod-db"
+  existingSecretPasswordKey: "password"
+  sslMode: "require"
+
+externalRedis:
+  enabled: true
+  host: "redis.example.com"
+  port: 6379
+  existingSecret: "secretly-prod-redis"
+  existingSecretPasswordKey: "password"
+
+# Use existing secrets for production
+security:
+  existingSecret: "secretly-prod-encryption"
+  existingSecretKey: "encryption-key"
+
+slack:
+  botToken: ""  # Will be set via existing secret
+  appToken: ""  # Will be set via existing secret
+  signingSecret: ""  # Will be set via existing secret
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: secretly.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: secretly-prod-tls
+      hosts:
+        - secretly.example.com
+
+# Production monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    labels:
+      prometheus: "kube-prometheus"
+
+# Strict network policies
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: nginx-ingress
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 5432  # PostgreSQL
+        - protocol: TCP
+          port: 6379  # Redis
+        - protocol: TCP
+          port: 443   # HTTPS
+        - protocol: TCP
+          port: 53    # DNS
+        - protocol: UDP
+          port: 53    # DNS
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Production affinity rules
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - secretly
+        topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/worker
+              operator: Exists
+
+# Priority class for production workloads
+priorityClassName: "high-priority"
+
+# Production lifecycle hooks
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 15"]
+
+# Enhanced health checks for production
+healthcheck:
+  liveness:
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
