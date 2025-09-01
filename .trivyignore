@@ -1,0 +1,12 @@
+# Trivy ignore file for legitimate exceptions
+
+# Helm chart dependencies - these are downloaded during CI
+helm/secretly/charts/
+
+# Development files that may have relaxed security
+Dockerfile.dev
+
+# Generated files
+node_modules/
+dist/
+.git/
