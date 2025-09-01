@@ -1,8 +1,8 @@
 # Multi-stage build for optimized image size  
 FROM node:20-alpine AS builder
 
-# Install build dependencies with semantic version pinning
-RUN apk add --no-cache python3~=3.12 make~=4.4 g++~=13.2
+# Install build dependencies with pinned versions
+RUN apk add --no-cache python3=3.12.11-r0 make=4.4.1-r3 g++=14.2.0-r6
 
 WORKDIR /app
 
@@ -22,8 +22,8 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine
 
-# Install runtime dependencies with semantic version pinning
-RUN apk add --no-cache dumb-init~=1.2 python3~=3.12 make~=4.4 g++~=13.2
+# Install runtime dependencies with pinned versions
+RUN apk add --no-cache dumb-init=1.2.5-r3 python3=3.12.11-r0 make=4.4.1-r3 g++=14.2.0-r6
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
