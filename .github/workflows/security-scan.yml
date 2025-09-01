@@ -46,6 +46,9 @@ jobs:
   dependency-scan:
     name: Dependency Vulnerability Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -75,10 +78,14 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-deps-results.sarif'
+        category: 'trivy-dependencies'
 
   secrets-scan:
     name: Secret Detection
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -98,6 +105,7 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-secrets-results.sarif'
+        category: 'trivy-secrets'
 
     - name: Run Trivy configuration scanner
       uses: aquasecurity/trivy-action@master
@@ -112,10 +120,14 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-config-results.sarif'
+        category: 'trivy-config'
 
   helm-security:
     name: Helm Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -155,10 +167,14 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: checkov-results.sarif
+        category: 'checkov-kubernetes'
 
   dockerfile-scan:
     name: Dockerfile Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -174,3 +190,4 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: hadolint-results.sarif
+        category: 'hadolint-dockerfile'
