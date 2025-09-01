@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "secretly.fullname" . }}
+  labels:
+    {{- include "secretly.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {
+      "app": "{{ include "secretly.name" . }}",
+      "version": "{{ .Chart.AppVersion }}",
+      "environment": "{{ .Values.config.nodeEnv }}",
+      "features": {{ .Values.config.features | toJson }},
+      "rateLimits": {{ .Values.config.rateLimits | toJson }},
+      "retention": {{ .Values.config.retention | toJson }}
+    }

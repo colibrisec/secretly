@@ -104,6 +104,30 @@ npm run build
 npm start
 ```
 
+### Docker Development
+```bash
+docker-compose up
+```
+
+### Docker Production
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+### Kubernetes Deployment
+```bash
+# Add Helm repository
+helm repo add secretly oci://ghcr.io/colibrisec/charts
+helm repo update
+
+# Install with your configuration
+helm install secretly secretly/secretly \
+  --set slack.botToken="xoxb-your-token" \
+  --set slack.appToken="xapp-your-token" \
+  --set slack.signingSecret="your-secret" \
+  --set security.encryptionKey="your-32-char-key"
+```
+
 ## Usage
 
 ### Basic Commands

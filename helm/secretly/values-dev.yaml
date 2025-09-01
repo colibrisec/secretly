@@ -1,0 +1,78 @@
+# Development environment values for secretly
+# Override the default values for development deployment
+
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+  tag: "dev"
+
+config:
+  nodeEnv: "development"
+  logLevel: "debug"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+
+postgresql:
+  auth:
+    password: "dev_password"
+  primary:
+    persistence:
+      size: 1Gi
+    resources:
+      limits:
+        memory: 128Mi
+        cpu: 100m
+      requests:
+        memory: 64Mi
+        cpu: 50m
+
+redis:
+  auth:
+    password: "dev_redis_password"
+  master:
+    persistence:
+      size: 1Gi
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 50m
+      requests:
+        memory: 32Mi
+        cpu: 25m
+
+# Enable development tools
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: secretly-dev.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+# Relaxed security for development
+podSecurityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+
+securityContext:
+  allowPrivilegeEscalation: true
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false
+  runAsUser: 0
+
+# Enable network policy for testing
+networkPolicy:
+  enabled: true
