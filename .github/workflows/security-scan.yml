@@ -31,15 +31,15 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+      uses: github/codeql-action/autobuild@v3
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
 
@@ -72,7 +72,7 @@ jobs:
         scanners: 'vuln'
 
     - name: Upload Trivy dependency scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-deps-results.sarif'
 
@@ -95,7 +95,7 @@ jobs:
         scanners: 'secret'
 
     - name: Upload Trivy secret scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-secrets-results.sarif'
 
@@ -109,7 +109,7 @@ jobs:
         scanners: 'config'
 
     - name: Upload Trivy config scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-config-results.sarif'
 
@@ -127,6 +127,12 @@ jobs:
 
     - name: Install Checkov
       run: pip3 install checkov
+
+    - name: Update Helm dependencies
+      run: |
+        cd helm/secretly
+        helm dependency update
+        cd ../..
 
     - name: Render Helm templates
       run: |
@@ -146,7 +152,7 @@ jobs:
           --output-file-path checkov-results.sarif || true
 
     - name: Upload Checkov scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: checkov-results.sarif
 
@@ -165,6 +171,6 @@ jobs:
         output-file: hadolint-results.sarif
 
     - name: Upload Hadolint scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: hadolint-results.sarif
