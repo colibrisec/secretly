@@ -22,21 +22,20 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
+# Install runtime dependencies and build tools (needed for some npm packages)
+RUN apk add --no-cache dumb-init python3 make g++ && \
+    addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies as root (for native modules)
 COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --production && \
+RUN npm ci --omit=dev --verbose && \
     npm cache clean --force
+
+# Remove build tools after installation to reduce image size
+RUN apk del python3 make g++
 
 # Copy built application from builder
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist

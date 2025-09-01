@@ -1,5 +1,5 @@
 import { App, MessageEvent, SayFn } from '@slack/bolt';
-import { WebClient } from '@slack/web-api';
+// import { WebClient } from '@slack/web-api';
 import { detectSensitiveData, detectHighEntropyStrings } from '../detectors/patterns';
 import { ObfuscationService } from '../services/obfuscation.service';
 import { AuditService } from '../services/audit.service';
@@ -16,7 +16,7 @@ export class MessageHandler {
   private channelConfigService: ChannelConfigService;
   private databaseService: DatabaseService;
   private rateLimiter: RateLimiter;
-  private client: WebClient;
+  private client: any;
 
   constructor(
     app: App,
@@ -36,13 +36,13 @@ export class MessageHandler {
     this.client = app.client;
   }
 
-  async handleMessage(event: MessageEvent, say: SayFn): Promise<void> {
+  async handleMessage(event: MessageEvent, _say: SayFn): Promise<void> {
     try {
-      if (!event.text || event.subtype === 'bot_message') {
+      if (!('text' in event) || !event.text || event.subtype === 'bot_message') {
         return;
       }
 
-      const { channel, user, ts, text } = event;
+      const { channel, user, ts, text } = event as any;
 
       const rateLimitCheck = await this.rateLimiter.checkLimit(user, channel);
       if (!rateLimitCheck.allowed) {
@@ -88,7 +88,7 @@ export class MessageHandler {
         }))
       ];
 
-      const { obfuscated, mappings } = this.obfuscationService.obfuscateText(
+      const { obfuscated } = this.obfuscationService.obfuscateText(
         text,
         matches.map(m => ({ match: m.match, index: m.index, type: m.type }))
       );
@@ -139,9 +139,9 @@ export class MessageHandler {
       logger.error('Error handling message:', error);
       
       await this.auditService.logError({
-        userId: event.user,
-        channelId: event.channel,
-        messageTs: event.ts,
+        userId: (event as any).user,
+        channelId: (event as any).channel,
+        messageTs: (event as any).ts,
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date()
       });

@@ -81,11 +81,11 @@ async function initializeServices() {
       const userId = body.user.id;
       
       try {
-        await messageHandler.handleDismissal(recordId, userId);
+        await messageHandler.handleDismissal(recordId || 'unknown', userId || 'unknown');
       } catch (error) {
         await client.chat.postEphemeral({
           channel: body.channel?.id || '',
-          user: userId,
+          user: userId || 'unknown',
           text: '❌ Failed to dismiss obfuscation. Please try again or contact an administrator.'
         });
       }
@@ -96,7 +96,7 @@ async function initializeServices() {
     await ack();
     
     await client.views.open({
-      trigger_id: body.trigger_id,
+      trigger_id: (body as any).trigger_id,
       view: {
         type: 'modal',
         title: {
@@ -229,7 +229,7 @@ async function initializeServices() {
     const channelId = view.private_metadata;
     const userId = body.user.id;
     
-    const sensitivityLevel = view.state.values.sensitivity_level.sensitivity_select.selected_option?.value || 'medium';
+    const sensitivityLevel = view.state.values.sensitivity_level.sensitivity_select.selected_option?.value as 'low' | 'medium' | 'high' | 'critical' || 'medium';
     const detectionTypes = view.state.values.detection_types.detection_checkboxes.selected_options?.map(o => o.value) || [];
     
     await channelConfigService.updateChannelConfig(channelId, {
@@ -251,7 +251,7 @@ async function initializeServices() {
   });
 
   // Health check endpoints
-  healthApp.get('/health', (req, res) => {
+  healthApp.get('/health', (_req, res) => {
     res.status(200).json({ 
       status: 'healthy', 
       timestamp: new Date().toISOString(),
@@ -259,7 +259,7 @@ async function initializeServices() {
     });
   });
 
-  healthApp.get('/ready', async (req, res) => {
+  healthApp.get('/ready', async (_req, res) => {
     try {
       // Check database connection
       await databaseService.pool.query('SELECT 1');
