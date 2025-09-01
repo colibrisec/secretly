@@ -1,6 +1,7 @@
 import { App, LogLevel } from '@slack/bolt';
 import * as dotenv from 'dotenv';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { MessageHandler } from './handlers/message.handler';
 import { ObfuscationService } from './services/obfuscation.service';
 import { DatabaseService } from './services/database.service';
@@ -9,18 +10,23 @@ import { PermissionService } from './services/permission.service';
 import { ChannelConfigService } from './services/channel-config.service';
 import { RateLimiter } from './utils/rate-limiter';
 import { logger } from './utils/logger';
+import { validateRequiredSecrets, getRequiredSecret } from './utils/secrets';
 
 dotenv.config();
 
 const requiredEnvVars = [
-  'SLACK_BOT_TOKEN',
-  'SLACK_APP_TOKEN',
-  'SLACK_SIGNING_SECRET',
   'DATABASE_URL',
-  'REDIS_URL',
+  'REDIS_URL'
+];
+
+const requiredSecrets = [
+  'SLACK_BOT_TOKEN',
+  'SLACK_APP_TOKEN', 
+  'SLACK_SIGNING_SECRET',
   'ENCRYPTION_KEY'
 ];
 
+// Check for required environment variables
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     logger.error(`Missing required environment variable: ${envVar}`);
@@ -28,10 +34,18 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
+// Validate required secrets (from files or env vars)
+try {
+  validateRequiredSecrets(requiredSecrets);
+} catch (error) {
+  logger.error('Secret validation failed:', error);
+  process.exit(1);
+}
+
 const app = new App({
-  token: process.env.SLACK_BOT_TOKEN,
-  appToken: process.env.SLACK_APP_TOKEN,
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  token: getRequiredSecret('SLACK_BOT_TOKEN'),
+  appToken: getRequiredSecret('SLACK_APP_TOKEN'),
+  signingSecret: getRequiredSecret('SLACK_SIGNING_SECRET'),
   socketMode: true,
   logLevel: (process.env.LOG_LEVEL as LogLevel) || LogLevel.INFO
 });
@@ -43,7 +57,7 @@ async function initializeServices() {
   const databaseService = new DatabaseService(process.env.DATABASE_URL!);
   await databaseService.initialize();
 
-  const obfuscationService = new ObfuscationService(process.env.ENCRYPTION_KEY!);
+  const obfuscationService = new ObfuscationService(getRequiredSecret('ENCRYPTION_KEY'));
   const auditService = new AuditService(databaseService);
   const permissionService = new PermissionService(databaseService);
   const channelConfigService = new ChannelConfigService(databaseService);
@@ -249,6 +263,45 @@ async function initializeServices() {
       text: `✅ Channel security configuration has been updated by <@${userId}>`
     });
   });
+
+  // Rate limiting for health endpoints with whitelist for localhost and health checks
+  const healthRateLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 60, // Limit each IP to 60 requests per windowMs (1 per second average)
+    message: {
+      error: 'Too many health check requests, please try again later',
+      retryAfter: 60
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Skip rate limiting for localhost, private IPs, and health check sources
+    skip: (req) => {
+      const ip = req.ip || req.connection.remoteAddress || '';
+      
+      // Localhost and loopback
+      if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1') || ip.includes('localhost')) {
+        return true;
+      }
+      
+      // Private IP ranges (Docker, Kubernetes, internal networks)
+      if (
+        ip.startsWith('10.') ||           // 10.0.0.0/8
+        ip.startsWith('172.') ||          // 172.16.0.0/12 
+        ip.startsWith('192.168.') ||      // 192.168.0.0/16
+        ip.startsWith('169.254.') ||      // Link-local
+        ip.includes('::ffff:10.') ||      // IPv6-mapped private IPs
+        ip.includes('::ffff:172.') ||
+        ip.includes('::ffff:192.168.')
+      ) {
+        return true;
+      }
+      
+      return false;
+    }
+  });
+
+  // Apply rate limiting to health endpoints
+  healthApp.use(healthRateLimiter);
 
   // Health check endpoints
   healthApp.get('/health', (_req, res) => {

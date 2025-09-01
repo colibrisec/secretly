@@ -1,12 +1,13 @@
 import { DatabaseService } from './database.service';
 import { WebClient } from '@slack/web-api';
 import { logger } from '../utils/logger';
+import { getRequiredSecret } from '../utils/secrets';
 
 export class PermissionService {
   private slackClient: WebClient;
 
   constructor(private databaseService: DatabaseService) {
-    this.slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
+    this.slackClient = new WebClient(getRequiredSecret('SLACK_BOT_TOKEN'));
   }
 
   async canUserDismiss(userId: string, channelId: string, severity: string): Promise<boolean> {
