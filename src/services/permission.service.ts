@@ -48,7 +48,7 @@ export class PermissionService {
         return true;
       }
 
-      const response = await this.slackClient.conversations.members({
+      await this.slackClient.conversations.members({
         channel: channelId
       });
 
