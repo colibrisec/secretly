@@ -1,5 +1,5 @@
-# Multi-stage build for optimized image size
-FROM node:20-alpine@sha256:2d07db07023df9c8c39c2d72818f0f5e2bfa67b3e4b37cd8b8c15e0de76d4dc8 AS builder
+# Multi-stage build for optimized image size  
+FROM node:20-alpine AS builder
 
 # Install build dependencies with specific versions
 RUN apk add --no-cache python3=~3.11 make=~4.4 g++=~12.2
@@ -19,8 +19,8 @@ COPY src ./src
 # Build the application
 RUN npm run build
 
-# Production stage with pinned base image
-FROM node:20-alpine@sha256:2d07db07023df9c8c39c2d72818f0f5e2bfa67b3e4b37cd8b8c15e0de76d4dc8
+# Production stage
+FROM node:20-alpine
 
 # Install runtime dependencies with specific versions
 RUN apk add --no-cache dumb-init=~1.2.5 python3=~3.11 make=~4.4 g++=~12.2
