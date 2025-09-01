@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: secretly
       POSTGRES_USER: secretly_user
-      POSTGRES_PASSWORD: secretly_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretly_dev_password}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -27,7 +27,7 @@ services:
     image: redis:7-alpine
     container_name: secretly-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass secretly_redis_password
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-secretly_dev_redis_password}
     volumes:
       - redis_data:/data
     ports:
@@ -58,8 +58,8 @@ services:
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
       
       # Database Configuration
-      DATABASE_URL: postgresql://secretly_user:secretly_password@postgres:5432/secretly
-      REDIS_URL: redis://:secretly_redis_password@redis:6379
+      DATABASE_URL: postgresql://secretly_user:${POSTGRES_PASSWORD:-secretly_dev_password}@postgres:5432/secretly
+      REDIS_URL: redis://:${REDIS_PASSWORD:-secretly_dev_redis_password}@redis:6379
       
       # Security Configuration
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your-32-byte-encryption-key-change-this}
@@ -102,8 +102,8 @@ services:
     container_name: secretly-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@secretly.local
-      PGADMIN_DEFAULT_PASSWORD: admin_password
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@secretly.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-secretly_dev_admin_password}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
     ports:
@@ -121,7 +121,7 @@ services:
     container_name: secretly-redis-commander
     restart: unless-stopped
     environment:
-      REDIS_HOSTS: redis:redis:6379:0:secretly_redis_password
+      REDIS_HOSTS: redis:redis:6379:0:${REDIS_PASSWORD:-secretly_dev_redis_password}
     ports:
       - "8081:8081"
     networks:
