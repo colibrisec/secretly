@@ -1,8 +1,8 @@
 # Multi-stage build for optimized image size  
 FROM node:20-alpine AS builder
 
-# Install build dependencies with specific versions
-RUN apk add --no-cache python3=~3.11 make=~4.4 g++=~12.2
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -22,8 +22,8 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine
 
-# Install runtime dependencies with specific versions
-RUN apk add --no-cache dumb-init=~1.2.5 python3=~3.11 make=~4.4 g++=~12.2
+# Install runtime dependencies
+RUN apk add --no-cache dumb-init python3 make g++
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
