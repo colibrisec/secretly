@@ -102,15 +102,15 @@ export class RateLimiter {
       let limiter: RateLimiterRedis | undefined;
       
       switch (type) {
-        case 'user':
-          limiter = this.userLimiter;
-          break;
-        case 'channel':
-          limiter = this.channelLimiter;
-          break;
-        case 'global':
-          limiter = this.globalLimiter;
-          break;
+      case 'user':
+        limiter = this.userLimiter;
+        break;
+      case 'channel':
+        limiter = this.channelLimiter;
+        break;
+      case 'global':
+        limiter = this.globalLimiter;
+        break;
       }
 
       if (limiter) {

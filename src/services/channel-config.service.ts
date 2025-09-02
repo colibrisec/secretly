@@ -110,16 +110,16 @@ export class ChannelConfigService {
 
   private getDefaultDetectors(sensitivityLevel: string): string[] {
     switch (sensitivityLevel) {
-      case 'low':
-        return ['credit_card', 'ssn', 'api_key'];
-      case 'medium':
-        return ['credit_card', 'ssn', 'api_key', 'password'];
-      case 'high':
-        return ['credit_card', 'ssn', 'api_key', 'password', 'email', 'phone'];
-      case 'critical':
-        return ['credit_card', 'ssn', 'api_key', 'password', 'email', 'phone', 'ip_address'];
-      default:
-        return ['credit_card', 'ssn', 'api_key', 'password'];
+    case 'low':
+      return ['credit_card', 'ssn', 'api_key'];
+    case 'medium':
+      return ['credit_card', 'ssn', 'api_key', 'password'];
+    case 'high':
+      return ['credit_card', 'ssn', 'api_key', 'password', 'email', 'phone'];
+    case 'critical':
+      return ['credit_card', 'ssn', 'api_key', 'password', 'email', 'phone', 'ip_address'];
+    default:
+      return ['credit_card', 'ssn', 'api_key', 'password'];
     }
   }
 
