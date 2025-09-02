@@ -205,6 +205,21 @@
       "matchPackagePatterns": [
         "apk:*"
       ]
+    },
+    {
+      "description": "Vulnerability alerts with high priority",
+      "matchPackagePatterns": ["*"],
+      "vulnerabilityAlerts": {
+        "enabled": true
+      },
+      "prPriority": 10,
+      "labels": [
+        "security",
+        "vulnerability"
+      ],
+      "schedule": [
+        "at any time"
+      ]
     }
   ],
   "vulnerabilityAlerts": {
@@ -212,7 +227,6 @@
     "schedule": [
       "at any time"
     ],
-    "prPriority": 10,
     "labels": [
       "security",
       "vulnerability"
@@ -226,7 +240,10 @@
     ],
     "automerge": true,
     "automergeType": "branch",
-    "prTitle": "Lock file maintenance",
+    "commitMessage": {
+      "prefix": "chore: ",
+      "action": "Lock file maintenance"
+    },
     "labels": [
       "lock-file-maintenance"
     ]
