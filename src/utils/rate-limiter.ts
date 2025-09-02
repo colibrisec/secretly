@@ -1,5 +1,5 @@
 import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
-import Redis from 'redis';
+import { createClient } from 'redis';
 import { logger } from './logger';
 
 export interface RateLimiterConfig {
@@ -19,8 +19,12 @@ export class RateLimiter {
 
   async initialize(): Promise<void> {
     try {
-      this.redisClient = Redis.createClient({
+      this.redisClient = createClient({
         url: this.config.redisUrl
+      });
+
+      this.redisClient.on('error', (err: Error) => {
+        logger.error('Redis client error:', err);
       });
 
       await this.redisClient.connect();
