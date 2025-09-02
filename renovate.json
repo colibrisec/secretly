@@ -60,9 +60,6 @@
       "labels": [
         "security",
         "automerge"
-      ],
-      "matchPackageNames": [
-        "*"
       ]
     },
     {
@@ -96,8 +93,8 @@
         "before 6am on monday"
       ],
       "automerge": false,
-      "matchPackageNames": [
-        "/@slack/*/"
+      "matchPackagePatterns": [
+        "@slack/*"
       ]
     },
     {
@@ -110,10 +107,10 @@
       "reviewers": [
         "@colibrisec/security-team"
       ],
-      "matchPackageNames": [
-        "/*security*/",
-        "/*crypto*/",
-        "/*auth*/"
+      "matchPackagePatterns": [
+        "*security*",
+        "*crypto*",
+        "*auth*"
       ]
     },
     {
@@ -205,8 +202,8 @@
       "schedule": [
         "before 6am on the first day of the month"
       ],
-      "matchPackageNames": [
-        "/apk:*/"
+      "matchPackagePatterns": [
+        "apk:*"
       ]
     }
   ],
@@ -239,23 +236,23 @@
   },
   "kubernetes": {
     "enabled": true,
-    "managerFilePatterns": [
-      "/helm/.+\\.yaml$/"
+    "fileMatch": [
+      "helm/.+\\.yaml$"
     ]
   },
   "helm-values": {
     "enabled": true,
-    "managerFilePatterns": [
-      "/helm/.+/values\\.yaml$/",
-      "/helm/.+/Chart\\.yaml$/"
+    "fileMatch": [
+      "helm/.+/values.*\\.yaml$",
+      "helm/.+/Chart\\.yaml$"
     ]
   },
   "customManagers": [
     {
       "customType": "regex",
       "description": "Update Alpine package versions in Dockerfile",
-      "managerFilePatterns": [
-        "/Dockerfile$/"
+      "fileMatch": [
+        "Dockerfile*"
       ],
       "matchStrings": [
         "apk add --no-cache (?<depName>\\S+?)=(?<currentValue>\\S+?)(?:\\s|$)"
