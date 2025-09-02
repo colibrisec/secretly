@@ -84,51 +84,55 @@ export class ObfuscationService {
 
   private createMask(value: string, type: string): string {
     switch (type) {
-      case 'credit_card':
-        const digits = value.replace(/\D/g, '');
-        if (digits.length >= 4) {
-          return `[CARD-****${digits.slice(-4)}]`;
-        }
-        return '[CARD-REDACTED]';
+    case 'credit_card': {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length >= 4) {
+        return `[CARD-****${digits.slice(-4)}]`;
+      }
+      return '[CARD-REDACTED]';
+    }
       
-      case 'ssn':
-        return '[SSN-XXX-XX-XXXX]';
+    case 'ssn':
+      return '[SSN-XXX-XX-XXXX]';
       
-      case 'api_key':
-        if (value.length > 8) {
-          return `[KEY-${value.slice(0, 4)}...${value.slice(-4)}]`;
-        }
-        return '[KEY-REDACTED]';
+    case 'api_key':
+      if (value.length > 8) {
+        return `[KEY-${value.slice(0, 4)}...${value.slice(-4)}]`;
+      }
+      return '[KEY-REDACTED]';
       
-      case 'password':
-        return '[PASSWORD-REDACTED]';
+    case 'password':
+      return '[PASSWORD-REDACTED]';
       
-      case 'email':
-        const emailParts = value.split('@');
-        if (emailParts.length === 2) {
-          const username = emailParts[0];
-          const domain = emailParts[1];
-          const maskedUsername = username.charAt(0) + '*'.repeat(username.length - 1);
-          return `[EMAIL-${maskedUsername}@${domain}]`;
-        }
-        return '[EMAIL-REDACTED]';
+    case 'email': {
+      const emailParts = value.split('@');
+      if (emailParts.length === 2) {
+        const username = emailParts[0];
+        const domain = emailParts[1];
+        const maskedUsername = username.charAt(0) + '*'.repeat(username.length - 1);
+        return `[EMAIL-${maskedUsername}@${domain}]`;
+      }
+      return '[EMAIL-REDACTED]';
+    }
       
-      case 'phone':
-        const phoneDigits = value.replace(/\D/g, '');
-        if (phoneDigits.length >= 4) {
-          return `[PHONE-****${phoneDigits.slice(-4)}]`;
-        }
-        return '[PHONE-REDACTED]';
+    case 'phone': {
+      const phoneDigits = value.replace(/\D/g, '');
+      if (phoneDigits.length >= 4) {
+        return `[PHONE-****${phoneDigits.slice(-4)}]`;
+      }
+      return '[PHONE-REDACTED]';
+    }
       
-      case 'ip_address':
-        const parts = value.split('.');
-        if (parts.length === 4) {
-          return `[IP-${parts[0]}.XXX.XXX.${parts[3]}]`;
-        }
-        return '[IP-REDACTED]';
+    case 'ip_address': {
+      const parts = value.split('.');
+      if (parts.length === 4) {
+        return `[IP-${parts[0]}.XXX.XXX.${parts[3]}]`;
+      }
+      return '[IP-REDACTED]';
+    }
       
-      default:
-        return '[DATA-REDACTED]';
+    default:
+      return '[DATA-REDACTED]';
     }
   }
 

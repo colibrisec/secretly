@@ -15,16 +15,16 @@ export class PermissionService {
       const permissions = await this.databaseService.getUserPermissions(userId, channelId);
       
       switch (severity) {
-        case 'low':
-          return permissions.canDismissLow || permissions.isAdmin;
-        case 'medium':
-          return permissions.canDismissMedium || permissions.isAdmin;
-        case 'high':
-          return permissions.canDismissHigh || permissions.isAdmin;
-        case 'critical':
-          return permissions.canDismissCritical || permissions.isAdmin;
-        default:
-          return false;
+      case 'low':
+        return permissions.canDismissLow || permissions.isAdmin;
+      case 'medium':
+        return permissions.canDismissMedium || permissions.isAdmin;
+      case 'high':
+        return permissions.canDismissHigh || permissions.isAdmin;
+      case 'critical':
+        return permissions.canDismissCritical || permissions.isAdmin;
+      default:
+        return false;
       }
     } catch (error) {
       logger.error('Error checking user dismissal permissions:', error);
@@ -115,18 +115,18 @@ export class PermissionService {
       const updatedPermissions = { ...currentPermissions };
       
       switch (severity) {
-        case 'low':
-          updatedPermissions.canDismissLow = true;
-          break;
-        case 'medium':
-          updatedPermissions.canDismissMedium = true;
-          break;
-        case 'high':
-          updatedPermissions.canDismissHigh = true;
-          break;
-        case 'critical':
-          updatedPermissions.canDismissCritical = true;
-          break;
+      case 'low':
+        updatedPermissions.canDismissLow = true;
+        break;
+      case 'medium':
+        updatedPermissions.canDismissMedium = true;
+        break;
+      case 'high':
+        updatedPermissions.canDismissHigh = true;
+        break;
+      case 'critical':
+        updatedPermissions.canDismissCritical = true;
+        break;
       }
 
       await this.databaseService.setUserPermissions(userId, channelId, updatedPermissions);
@@ -150,18 +150,18 @@ export class PermissionService {
       const updatedPermissions = { ...currentPermissions };
       
       switch (severity) {
-        case 'low':
-          updatedPermissions.canDismissLow = false;
-          break;
-        case 'medium':
-          updatedPermissions.canDismissMedium = false;
-          break;
-        case 'high':
-          updatedPermissions.canDismissHigh = false;
-          break;
-        case 'critical':
-          updatedPermissions.canDismissCritical = false;
-          break;
+      case 'low':
+        updatedPermissions.canDismissLow = false;
+        break;
+      case 'medium':
+        updatedPermissions.canDismissMedium = false;
+        break;
+      case 'high':
+        updatedPermissions.canDismissHigh = false;
+        break;
+      case 'critical':
+        updatedPermissions.canDismissCritical = false;
+        break;
       }
 
       await this.databaseService.setUserPermissions(userId, channelId, updatedPermissions);

@@ -84,7 +84,7 @@ export const patterns: DetectionPattern[] = [
   },
   {
     name: 'Generic API Key',
-    pattern: /\b(api[_-]?key|apikey|api[_-]?secret|api[_-]?token)['"\\s]*[:=]['"\\s]*([a-zA-Z0-9_\-]{32,})\b/gi,
+    pattern: /\b(api[_-]?key|apikey|api[_-]?secret|api[_-]?token)['"\\s]*[:=]['"\\s]*([a-zA-Z0-9_-]{32,})\b/gi,
     type: 'api_key',
     severity: 'high',
     description: 'Generic API Key detected'
