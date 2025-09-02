@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Renovate configuration for Secretly project dependency management",
   "extends": [
-    "config:base",
+    "config:recommended",
     "security:openssf-scorecard",
     ":dependencyDashboard",
     ":semanticCommits",
@@ -17,8 +17,12 @@
     "dependencies",
     "renovate"
   ],
-  "assignees": ["@colibrisec/maintainers"],
-  "reviewers": ["@colibrisec/maintainers"],
+  "assignees": [
+    "@colibrisec/maintainers"
+  ],
+  "reviewers": [
+    "@colibrisec/maintainers"
+  ],
   "prConcurrentLimit": 5,
   "branchConcurrentLimit": 10,
   "enabledManagers": [
@@ -31,125 +35,228 @@
   ],
   "packageRules": [
     {
+      "matchCategories": [
+        "docker"
+      ],
+      "enabled": true,
+      "pinDigests": true
+    },
+    {
       "description": "Critical security updates - immediate",
-      "matchPackagePatterns": ["*"],
-      "matchUpdateTypes": ["patch"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "matchCurrentVersion": "!/^0/",
-      "vulnerabilityAlerts": true,
-      "schedule": ["at any time"],
+      "vulnerabilityAlerts": {
+        "enabled": true
+      },
+      "schedule": [
+        "at any time"
+      ],
       "prPriority": 10,
       "automerge": true,
       "automergeType": "branch",
       "platformAutomerge": true,
-      "labels": ["security", "automerge"]
+      "labels": [
+        "security",
+        "automerge"
+      ],
+      "matchPackageNames": [
+        "*"
+      ]
     },
     {
       "description": "Node.js and npm major versions",
-      "matchPackageNames": ["node", "npm"],
-      "matchUpdateTypes": ["major"],
-      "schedule": ["before 6am on the first day of the month"],
+      "matchPackageNames": [
+        "node",
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "schedule": [
+        "before 6am on the first day of the month"
+      ],
       "prPriority": -5,
-      "labels": ["major-update", "nodejs"],
-      "reviewers": ["@colibrisec/security-team"]
+      "labels": [
+        "major-update",
+        "nodejs"
+      ],
+      "reviewers": [
+        "@colibrisec/security-team"
+      ]
     },
     {
       "description": "Slack SDK updates",
-      "matchPackagePatterns": ["@slack/*"],
       "prPriority": 5,
-      "labels": ["slack-sdk"],
-      "schedule": ["before 6am on monday"],
-      "automerge": false
+      "labels": [
+        "slack-sdk"
+      ],
+      "schedule": [
+        "before 6am on monday"
+      ],
+      "automerge": false,
+      "matchPackageNames": [
+        "/@slack/*/"
+      ]
     },
     {
       "description": "Security and crypto packages",
-      "matchPackagePatterns": ["*security*", "*crypto*", "*auth*"],
       "prPriority": 8,
-      "labels": ["security"],
+      "labels": [
+        "security"
+      ],
       "automerge": false,
-      "reviewers": ["@colibrisec/security-team"]
+      "reviewers": [
+        "@colibrisec/security-team"
+      ],
+      "matchPackageNames": [
+        "/*security*/",
+        "/*crypto*/",
+        "/*auth*/"
+      ]
     },
     {
       "description": "Database packages",
-      "matchPackageNames": ["pg", "redis", "postgresql", "@types/pg"],
+      "matchPackageNames": [
+        "pg",
+        "redis",
+        "postgresql",
+        "@types/pg"
+      ],
       "prPriority": 6,
-      "labels": ["database"],
-      "schedule": ["before 6am on monday"]
+      "labels": [
+        "database"
+      ],
+      "schedule": [
+        "before 6am on monday"
+      ]
     },
     {
       "description": "Development dependencies",
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
       "automergeType": "branch",
-      "labels": ["dev-dependencies"]
+      "labels": [
+        "dev-dependencies"
+      ]
     },
     {
       "description": "GitHub Actions",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "prPriority": 3,
-      "labels": ["github-actions"],
+      "labels": [
+        "github-actions"
+      ],
       "automerge": true,
       "automergeType": "branch"
     },
     {
       "description": "Docker base images",
-      "matchManagers": ["dockerfile"],
-      "matchPackageNames": ["node", "postgres", "redis"],
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchPackageNames": [
+        "node",
+        "postgres",
+        "redis"
+      ],
       "prPriority": 7,
-      "labels": ["docker", "base-image"],
-      "schedule": ["before 6am on monday"]
+      "labels": [
+        "docker",
+        "base-image"
+      ],
+      "schedule": [
+        "before 6am on monday"
+      ]
     },
     {
       "description": "Helm chart dependencies",
-      "matchManagers": ["helm-values"],
-      "matchFileNames": ["helm/secretly/Chart.yaml"],
+      "matchManagers": [
+        "helm-values"
+      ],
+      "matchFileNames": [
+        "helm/secretly/Chart.yaml"
+      ],
       "prPriority": 4,
-      "labels": ["helm", "kubernetes"]
+      "labels": [
+        "helm",
+        "kubernetes"
+      ]
     },
     {
       "description": "Alpine packages in Dockerfile",
-      "matchManagers": ["dockerfile"],
-      "matchPackagePatterns": ["apk:*"],
+      "matchManagers": [
+        "dockerfile"
+      ],
       "prPriority": 2,
-      "labels": ["alpine", "system-packages"],
-      "schedule": ["before 6am on the first day of the month"]
+      "labels": [
+        "alpine",
+        "system-packages"
+      ],
+      "schedule": [
+        "before 6am on the first day of the month"
+      ],
+      "matchPackageNames": [
+        "/apk:*/"
+      ]
     }
   ],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "schedule": ["at any time"],
+    "schedule": [
+      "at any time"
+    ],
     "prPriority": 10,
-    "labels": ["security", "vulnerability"]
+    "labels": [
+      "security",
+      "vulnerability"
+    ]
   },
   "osvVulnerabilityAlerts": true,
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 6am on sunday"],
+    "schedule": [
+      "before 6am on sunday"
+    ],
     "automerge": true,
     "automergeType": "branch",
     "prTitle": "Lock file maintenance",
-    "labels": ["lock-file-maintenance"]
-  },
-  "docker": {
-    "enabled": true,
-    "pinDigests": true
+    "labels": [
+      "lock-file-maintenance"
+    ]
   },
   "dockerfile": {
     "enabled": true
   },
   "kubernetes": {
     "enabled": true,
-    "fileMatch": ["helm/.+\\.yaml$"]
+    "managerFilePatterns": [
+      "/helm/.+\\.yaml$/"
+    ]
   },
   "helm-values": {
     "enabled": true,
-    "fileMatch": ["helm/.+/values\\.yaml$", "helm/.+/Chart\\.yaml$"]
+    "managerFilePatterns": [
+      "/helm/.+/values\\.yaml$/",
+      "/helm/.+/Chart\\.yaml$/"
+    ]
   },
   "customManagers": [
     {
       "customType": "regex",
       "description": "Update Alpine package versions in Dockerfile",
-      "fileMatch": ["Dockerfile$"],
+      "managerFilePatterns": [
+        "/Dockerfile$/"
+      ],
       "matchStrings": [
         "apk add --no-cache (?<depName>\\S+?)=(?<currentValue>\\S+?)(?:\\s|$)"
       ],
