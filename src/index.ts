@@ -12,7 +12,7 @@ import { RateLimiter } from './utils/rate-limiter';
 import { logger } from './utils/logger';
 import { validateRequiredSecrets, getRequiredSecret } from './utils/secrets';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const requiredEnvVars = [
   'DATABASE_URL',
