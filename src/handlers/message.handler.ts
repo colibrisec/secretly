@@ -1,4 +1,5 @@
-import { App, MessageEvent, SayFn } from '@slack/bolt';
+import { App, SayFn } from '@slack/bolt';
+import { GenericMessageEvent } from '@slack/types';
 // import { WebClient } from '@slack/web-api';
 import { detectSensitiveData, detectHighEntropyStrings } from '../detectors/patterns';
 import { ObfuscationService } from '../services/obfuscation.service';
@@ -36,7 +37,7 @@ export class MessageHandler {
     this.client = app.client;
   }
 
-  async handleMessage(event: MessageEvent, _say: SayFn): Promise<void> {
+  async handleMessage(event: GenericMessageEvent, _say: SayFn): Promise<void> {
     try {
       if (!('text' in event) || !event.text || event.subtype === 'bot_message') {
         return;
