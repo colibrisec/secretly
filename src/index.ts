@@ -96,7 +96,7 @@ async function initializeServices() {
       
       try {
         await messageHandler.handleDismissal(recordId || 'unknown', userId || 'unknown');
-      } catch (error) {
+      } catch {
         await client.chat.postEphemeral({
           channel: body.channel?.id || '',
           user: userId || 'unknown',
