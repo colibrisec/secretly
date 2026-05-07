@@ -1,9 +1,8 @@
-# Multi-stage build for optimized image size  
+# Multi-stage build for optimized image size
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f AS builder
 
 # hadolint ignore=DL3018
-RUN apk add --no-cache python3 make g++ && \
-    npm install -g npm@11.14.0
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -17,31 +16,24 @@ RUN npm ci --no-audit --no-fund
 # Copy source code
 COPY src ./src
 
-# Build the application
-RUN npm run build
+# Build the application and prune to production-only deps
+RUN npm run build && npm prune --omit=dev
 
 # Production stage
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
 
 # hadolint ignore=DL3018
-RUN apk add --no-cache dumb-init python3 make g++ && \
-    npm install -g npm@11.14.0
-
-# Create non-root user with high UID for security
-RUN addgroup -g 10001 -S nodejs && \
+RUN apk add --no-cache dumb-init && \
+    addgroup -g 10001 -S nodejs && \
     adduser -S nodejs -u 10001
 
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY --chown=nodejs:nodejs package*.json ./
 
-# Install production dependencies only with security flags
-RUN npm ci --omit=dev --no-audit --no-fund && \
-    npm cache clean --force
-
-# Remove build tools after installation to reduce image size
-RUN apk del python3 make g++
+# Copy pruned production node_modules from builder (native modules already compiled)
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copy built application from builder
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
