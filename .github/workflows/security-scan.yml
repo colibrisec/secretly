@@ -150,10 +150,12 @@ jobs:
       run: |
         mkdir -p rendered-templates
         helm template secretly helm/secretly \
+          --namespace secretly \
           --set slack.botToken="dummy" \
           --set slack.appToken="dummy" \
           --set slack.signingSecret="dummy" \
           --set security.encryptionKey="dummy-key-32-characters-long" \
+          --set image.digest="sha256:0000000000000000000000000000000000000000000000000000000000000000" \
           --output-dir rendered-templates
 
     - name: Run Checkov on Helm templates
