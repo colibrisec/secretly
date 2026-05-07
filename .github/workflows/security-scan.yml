@@ -66,7 +66,7 @@ jobs:
       run: npm audit --audit-level=moderate
 
     - name: Run Trivy vulnerability scanner on dependencies
-      uses: aquasecurity/trivy-action@0.70.0
+      uses: aquasecurity/trivy-action@0.36.0
       with:
         scan-type: 'fs'
         scan-ref: '.'
@@ -93,7 +93,7 @@ jobs:
         fetch-depth: 0
 
     - name: Run Trivy secret scanner
-      uses: aquasecurity/trivy-action@0.70.0
+      uses: aquasecurity/trivy-action@0.36.0
       with:
         scan-type: 'fs'
         scan-ref: '.'
@@ -108,7 +108,7 @@ jobs:
         category: 'trivy-secrets'
 
     - name: Run Trivy configuration scanner
-      uses: aquasecurity/trivy-action@0.70.0
+      uses: aquasecurity/trivy-action@0.36.0
       with:
         scan-type: 'config'
         scan-ref: '.'
