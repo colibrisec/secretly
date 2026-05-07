@@ -223,7 +223,7 @@ The bot provides:
 
 ## License
 
-MIT
+GPLv3
 
 ## Support
 
