@@ -239,13 +239,23 @@ async function initializeServices() {
 
   app.view('channel_config', async ({ ack, view, client, body }) => {
     await ack();
-    
+
     const channelId = view.private_metadata;
     const userId = body.user.id;
-    
+
+    const rateLimitCheck = await rateLimiter.checkLimit(userId, channelId);
+    if (!rateLimitCheck.allowed) {
+      await client.chat.postEphemeral({
+        channel: channelId,
+        user: userId,
+        text: '⚠️ Too many configuration changes. Please wait before trying again.'
+      });
+      return;
+    }
+
     const sensitivityLevel = view.state.values.sensitivity_level.sensitivity_select.selected_option?.value as 'low' | 'medium' | 'high' | 'critical' || 'medium';
     const detectionTypes = view.state.values.detection_types.detection_checkboxes.selected_options?.map(o => o.value) || [];
-    
+
     await channelConfigService.updateChannelConfig(channelId, {
       sensitivityLevel,
       enabledDetectors: detectionTypes
