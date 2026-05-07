@@ -2,7 +2,7 @@
 FROM node:22-alpine@sha256:d2166de198f26e17e5a442f537754dd616ab069c47cc57b889310a717e0abbf9 AS builder
 
 # Install build dependencies with pinned versions
-RUN apk add --no-cache python3=3.12.11-r0 make=4.4.1-r3 g++=14.2.0-r6
+RUN apk add --no-cache python3=3.12.13-r0 make=4.4.1-r3 g++=14.2.0-r6
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN npm run build
 FROM node:22-alpine@sha256:d2166de198f26e17e5a442f537754dd616ab069c47cc57b889310a717e0abbf9
 
 # Install runtime dependencies with pinned versions
-RUN apk add --no-cache dumb-init=1.2.5-r3 python3=3.12.11-r0 make=4.4.1-r3 g++=14.2.0-r6
+RUN apk add --no-cache dumb-init=1.2.5-r3 python3=3.12.13-r0 make=4.4.1-r3 g++=14.2.0-r6
 
 # Create non-root user with high UID for security
 RUN addgroup -g 10001 -S nodejs && \
