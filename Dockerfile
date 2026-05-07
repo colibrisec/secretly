@@ -1,7 +1,7 @@
 # Multi-stage build for optimized image size  
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f AS builder
 
-# Base image digest pins the Alpine version; no need to pin individual packages
+# hadolint ignore=DL3018
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
@@ -22,7 +22,7 @@ RUN npm run build
 # Production stage
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
 
-# Base image digest pins the Alpine version; no need to pin individual packages
+# hadolint ignore=DL3018
 RUN apk add --no-cache dumb-init python3 make g++
 
 # Create non-root user with high UID for security
