@@ -62,7 +62,7 @@ jobs:
 
     - name: Run Trivy vulnerability scanner
       if: github.event_name != 'pull_request'
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.70.0
       with:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         format: 'sarif'
@@ -71,7 +71,7 @@ jobs:
 
     - name: Run Trivy secret scanner
       if: github.event_name != 'pull_request'
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.70.0
       with:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         format: 'sarif'
@@ -80,14 +80,14 @@ jobs:
 
     - name: Upload Trivy vulnerability results to GitHub Security tab
       if: github.event_name != 'pull_request'
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-vuln-results.sarif'
         category: 'trivy-container-vulnerabilities'
 
     - name: Upload Trivy secret results to GitHub Security tab
       if: github.event_name != 'pull_request'
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-secret-results.sarif'
         category: 'trivy-container-secrets'
