@@ -25,7 +25,7 @@
     "crypto-js": "^4.2.0",
     "dotenv": "^17.0.0",
     "express": "^5.0.0",
-    "express-rate-limit": "^8.0.1",
+    "express-rate-limit": "^8.5.1",
     "pg": "^8.11.5",
     "rate-limiter-flexible": "^7.0.0",
     "redis": "^5.0.0",
