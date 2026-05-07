@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:17-alpine@sha256:3406990b6e4c7192317b6fdc5680498744f6142f01f0287f4ee0420d8c74063c
+    image: postgres:17-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
     container_name: secretly-postgres
     restart: unless-stopped
     environment:
@@ -98,7 +98,7 @@ services:
 
   # Optional: PostgreSQL Admin UI
   pgadmin:
-    image: dpage/pgadmin4:latest@sha256:5929bac24d91b5d7219686c8d66a703cd5851a498620bca4f5e4263873b015c0
+    image: dpage/pgadmin4:latest@sha256:ff557f69d9808085dc3554f56c1b06a36ac8cddabe4485212920b9604261abdb
     container_name: secretly-pgadmin
     restart: unless-stopped
     environment:
