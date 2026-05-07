@@ -1,8 +1,8 @@
 # Multi-stage build for optimized image size  
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f AS builder
 
-# Install build dependencies with pinned versions
-RUN apk add --no-cache python3=3.12.13-r0 make=4.4.1-r3 g++=14.2.0-r6
+# Base image digest pins the Alpine version; no need to pin individual packages
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -22,8 +22,8 @@ RUN npm run build
 # Production stage
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
 
-# Install runtime dependencies with pinned versions
-RUN apk add --no-cache dumb-init=1.2.5-r3 python3=3.12.13-r0 make=4.4.1-r3 g++=14.2.0-r6
+# Base image digest pins the Alpine version; no need to pin individual packages
+RUN apk add --no-cache dumb-init python3 make g++
 
 # Create non-root user with high UID for security
 RUN addgroup -g 10001 -S nodejs && \
