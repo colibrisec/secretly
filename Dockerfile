@@ -2,7 +2,8 @@
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f AS builder
 
 # hadolint ignore=DL3018
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ && \
+    npm install -g npm@11.14.0
 
 WORKDIR /app
 
@@ -23,7 +24,8 @@ RUN npm run build
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
 
 # hadolint ignore=DL3018
-RUN apk add --no-cache dumb-init python3 make g++
+RUN apk add --no-cache dumb-init python3 make g++ && \
+    npm install -g npm@11.14.0
 
 # Create non-root user with high UID for security
 RUN addgroup -g 10001 -S nodejs && \
