@@ -9,8 +9,9 @@ replicaCount: 2
 
 image:
   repository: ghcr.io/colibrisec/secretly
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: ""  # Overrides the image tag whose default is the chart appVersion.
+  digest: ""  # Set at deploy time, e.g. sha256:abc123...
 
 imagePullSecrets: []
 nameOverride: ""
@@ -135,6 +136,8 @@ config:
 # PostgreSQL Configuration
 postgresql:
   enabled: true
+  image:
+    pullPolicy: Always
   auth:
     username: secretly_user
     password: secretly_password  # Change in production
@@ -150,10 +153,20 @@ postgresql:
       requests:
         memory: 128Mi
         cpu: 100m
+    automountServiceAccountToken: false
   metrics:
     enabled: true
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 50m
+      requests:
+        memory: 32Mi
+        cpu: 25m
     serviceMonitor:
       enabled: false
+  networkPolicy:
+    enabled: true
 
 # Redis Configuration
 redis:
@@ -172,10 +185,20 @@ redis:
       requests:
         memory: 64Mi
         cpu: 50m
+    automountServiceAccountToken: false
   metrics:
     enabled: true
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 50m
+      requests:
+        memory: 32Mi
+        cpu: 25m
     serviceMonitor:
       enabled: false
+  networkPolicy:
+    enabled: true
 
 # External Database (if not using included PostgreSQL)
 externalDatabase:
