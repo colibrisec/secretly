@@ -31,15 +31,15 @@ jobs:
       uses: actions/checkout@v5
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
+      uses: github/codeql-action/autobuild@v4
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
 
@@ -66,7 +66,7 @@ jobs:
       run: npm audit --audit-level=moderate
 
     - name: Run Trivy vulnerability scanner on dependencies
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.70.0
       with:
         scan-type: 'fs'
         scan-ref: '.'
@@ -75,7 +75,7 @@ jobs:
         scanners: 'vuln'
 
     - name: Upload Trivy dependency scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-deps-results.sarif'
         category: 'trivy-dependencies'
@@ -93,7 +93,7 @@ jobs:
         fetch-depth: 0
 
     - name: Run Trivy secret scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.70.0
       with:
         scan-type: 'fs'
         scan-ref: '.'
@@ -102,13 +102,13 @@ jobs:
         scanners: 'secret'
 
     - name: Upload Trivy secret scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-secrets-results.sarif'
         category: 'trivy-secrets'
 
     - name: Run Trivy configuration scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.70.0
       with:
         scan-type: 'config'
         scan-ref: '.'
@@ -117,7 +117,7 @@ jobs:
         scanners: 'config'
 
     - name: Upload Trivy config scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-config-results.sarif'
         category: 'trivy-config'
@@ -164,7 +164,7 @@ jobs:
           --output-file-path checkov-results.sarif || true
 
     - name: Upload Checkov scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: checkov-results.sarif
         category: 'checkov-kubernetes'
@@ -187,7 +187,7 @@ jobs:
         output-file: hadolint-results.sarif
 
     - name: Upload Hadolint scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: hadolint-results.sarif
         category: 'hadolint-dockerfile'
