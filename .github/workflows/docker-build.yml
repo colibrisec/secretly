@@ -2,10 +2,8 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [ "main", "develop" ]
-    tags: [ "v*" ]
-  pull_request:
     branches: [ "main" ]
+    tags: [ "v*" ]
 
 env:
   REGISTRY: ghcr.io
@@ -27,7 +25,6 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Log in to Container Registry
-      if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
@@ -53,7 +50,7 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        push: ${{ github.event_name != 'pull_request' }}
+        push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
@@ -61,7 +58,6 @@ jobs:
         platforms: linux/amd64,linux/arm64
 
     - name: Run Trivy vulnerability scanner
-      if: github.event_name != 'pull_request'
       uses: aquasecurity/trivy-action@v0.36.0
       with:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
@@ -70,7 +66,6 @@ jobs:
         scanners: 'vuln'
 
     - name: Run Trivy secret scanner
-      if: github.event_name != 'pull_request'
       uses: aquasecurity/trivy-action@v0.36.0
       with:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
@@ -79,14 +74,12 @@ jobs:
         scanners: 'secret'
 
     - name: Upload Trivy vulnerability results to GitHub Security tab
-      if: github.event_name != 'pull_request'
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-vuln-results.sarif'
         category: 'trivy-container-vulnerabilities'
 
     - name: Upload Trivy secret results to GitHub Security tab
-      if: github.event_name != 'pull_request'
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-secret-results.sarif'
