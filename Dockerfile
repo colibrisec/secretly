@@ -1,5 +1,5 @@
 # Multi-stage build for optimized image size
-FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f AS builder
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS builder
 
 # hadolint ignore=DL3018
 RUN apk add --no-cache python3 make g++
@@ -20,7 +20,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # Production stage
-FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920
 
 # hadolint ignore=DL3018
 RUN apk add --no-cache dumb-init && \
