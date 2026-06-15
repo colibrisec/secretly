@@ -107,10 +107,10 @@
       "reviewers": [
         "@colibrisec/security-team"
       ],
-      "matchPackagePatterns": [
-        "*security*",
-        "*crypto*",
-        "*auth*"
+      "matchPackageNames": [
+        "/security/",
+        "/crypto/",
+        "/auth/"
       ]
     },
     {

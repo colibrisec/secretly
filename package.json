@@ -19,6 +19,10 @@
   ],
   "author": "",
   "license": "GPL-3.0-only",
+  "overrides": {
+    "@babel/core": "^7.29.7",
+    "js-yaml": "^4.2.0"
+  },
   "dependencies": {
     "@slack/bolt": "^4.0.0",
     "@slack/web-api": "^7.0.0",
