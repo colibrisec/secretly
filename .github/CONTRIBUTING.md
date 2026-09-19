@@ -6,7 +6,7 @@ Thanks for helping make Secretly a more useful open-source Slack security bot. C
 
 - Search existing [issues](https://github.com/colibrisec/secretly/issues) before opening a new one.
 - For substantial changes, open an issue first so the approach can be discussed before implementation.
-- Do not report security vulnerabilities in public issues. Follow the repository's security-reporting guidance instead.
+- Do not report security vulnerabilities in public issues. Follow the [security policy](SECURITY.md) instead.
 
 ## Development setup
 
