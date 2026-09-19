@@ -219,7 +219,7 @@ Releases are cut by the `release` workflow. It runs automatically on the 1st of 
 
 Each release publishes:
 
-- the container image to `ghcr.io/colibrisec/secretly` tagged `X.Y.Z`, `X.Y`, `X` and `stable`, with an ojo scan attached as an attestation when the scan succeeds
+- the container image to `ghcr.io/colibrisec/secretly` tagged `X.Y.Z`, `X.Y`, `X` and `stable`, with an ojo scan attached as an attestation when the scan succeeds; the scan results are also uploaded to Balam under the `Releases` engagement of the `secretly` product
 - the Helm chart to `oci://ghcr.io/colibrisec/charts` with the same version
 - a GitHub release with generated notes and the chart attached
 

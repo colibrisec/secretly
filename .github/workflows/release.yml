@@ -148,6 +148,16 @@ jobs:
           predicate-type: 'https://colibrisec.dev/attestations/ojo-scan/v1'
           predicate-path: ojo-image-report.json
           push-to-registry: true
+      - name: Upload to Balam
+        if: ${{ always() && hashFiles('ojo-image-report.json') != '' }}
+        uses: colibrisec/balam-action@88a6df7e085a860ea6d11719789bb197807c0402 # v1
+        with:
+          file: ojo-image-report.json
+          scan-type: 'OJO Scan'
+          balam-url: ${{ secrets.BALAM_URL }}
+          balam-token: ${{ secrets.BALAM_TOKEN }}
+          product-name: secretly
+          engagement-name: Releases
 
   chart:
     needs: [version, docker]
