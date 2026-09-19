@@ -1,0 +1,200 @@
+name: release
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version component to increment
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  version:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      release: ${{ steps.next.outputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: next
+        env:
+          BUMP: ${{ github.event_name == 'schedule' && 'minor' || inputs.bump }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          latest=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+          version=$(scripts/next-version.sh "$latest" "$BUMP")
+          if git rev-parse -q --verify "refs/tags/${version}" > /dev/null; then
+            echo "tag ${version} already exists" >&2
+            exit 1
+          fi
+          release=true
+          if [ "$EVENT_NAME" = "schedule" ] && [ -n "$latest" ] && [ "$(git rev-list --count "${latest}..HEAD")" = "0" ]; then
+            release=false
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test with coverage
+        run: npm run test:ci
+      - name: Build
+        run: npm run build
+      - name: Test release scripts
+        run: bash scripts/next-version.test.sh
+
+  docker:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.version.outputs.version }}
+            type=raw,value=stable
+      - id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  image-scan:
+    needs: docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: colibrisec/ojo-action@8aa63c11ada586530af7abee55a127ed2cfd6a0b # v1.1.1
+        with:
+          vulnerabilities: 'false'
+          secrets: 'false'
+          iac: 'false'
+          sast: 'false'
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+      - uses: actions/attest@v4
+        if: ${{ hashFiles('ojo-image-report.json') != '' }}
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ needs.docker.outputs.digest }}
+          predicate-type: 'https://colibrisec.dev/attestations/ojo-scan/v1'
+          predicate-path: ojo-image-report.json
+          push-to-registry: true
+
+  chart:
+    needs: [version, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package chart
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          chart_version="${VERSION#v}"
+          helm dependency update helm/secretly
+          helm package helm/secretly --version "$chart_version" --app-version "$chart_version" --destination dist
+      - name: Push chart
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          chart_version="${VERSION#v}"
+          helm push "dist/secretly-${chart_version}.tgz" "oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretly-chart
+          path: dist/*.tgz
+
+  release:
+    needs: [version, docker, chart]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: secretly-chart
+          path: dist
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.version.outputs.version }}
+          name: ${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: dist/*.tgz
