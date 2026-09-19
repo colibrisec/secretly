@@ -219,11 +219,13 @@ Releases are cut by the `release` workflow. It runs automatically on the 1st of 
 
 Each release publishes:
 
-- the container image to `ghcr.io/colibrisec/secretly` tagged `X.Y.Z`, `X.Y`, `X` and `stable`, with an ojo scan attached as an attestation
+- the container image to `ghcr.io/colibrisec/secretly` tagged `X.Y.Z`, `X.Y`, `X` and `stable`, with an ojo scan attached as an attestation when the scan succeeds
 - the Helm chart to `oci://ghcr.io/colibrisec/charts` with the same version
 - a GitHub release with generated notes and the chart attached
 
-The `latest` image tag follows the head of `main` and is published by the Docker build workflow, not by releases.
+The `latest` image tag follows the head of `main` and is published by the Docker build workflow, not by releases. The chart at `oci://ghcr.io/colibrisec/charts` is also published by the Helm chart workflow when `helm/` changes on `main`, using the version in `Chart.yaml`, so a chart version published by a release can be overwritten by a later change to `helm/` until that workflow stops publishing versioned charts.
+
+If a release run fails partway, use **Re-run failed jobs**; **Re-run all jobs** computes a new version instead of retrying.
 
 ## Monitoring
 
