@@ -213,6 +213,20 @@ ENCRYPTION_KEY=your-32-character-minimum-key
 
 In production, TLS verification for the database connection is on by default and ssl parameters in `DATABASE_URL` are ignored; configure TLS with the `DATABASE_SSL_*` variables as described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+## Releases
+
+Releases are cut by the `release` workflow. It runs automatically on the 1st of each month and bumps the minor version, skipping the month when nothing has changed since the last release. To release sooner, run it manually from the Actions tab on `main` and choose a `patch` (default), `minor` or `major` bump. The first release is `v1.0.0`.
+
+Each release publishes:
+
+- the container image to `ghcr.io/colibrisec/secretly` tagged `X.Y.Z`, `X.Y`, `X` and `stable`, with an ojo scan attached as an attestation when the scan succeeds; the scan results are also uploaded to Balam under the `Releases` engagement of the `secretly` product
+- the Helm chart to `oci://ghcr.io/colibrisec/charts` with the same version
+- a GitHub release with generated notes and the chart attached
+
+The `latest` image tag follows the head of `main` and is published by the Docker build workflow, not by releases. The chart at `oci://ghcr.io/colibrisec/charts` is also published by the Helm chart workflow when `helm/` changes on `main`, using the version in `Chart.yaml`, so a chart version published by a release can be overwritten by a later change to `helm/` until that workflow stops publishing versioned charts.
+
+If a release run fails partway, use **Re-run failed jobs**; **Re-run all jobs** computes a new version instead of retrying.
+
 ## Monitoring
 
 The bot provides:
@@ -228,6 +242,8 @@ The bot provides:
 3. Make your changes
 4. Add tests
 5. Submit a pull request
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full guidelines.
 
 ## License
 
