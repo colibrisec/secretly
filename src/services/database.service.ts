@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { logger } from '../utils/logger';
+import { buildDatabaseSsl } from '../utils/database-ssl';
 
 export class DatabaseService {
   public pool: Pool;
@@ -7,7 +8,7 @@ export class DatabaseService {
   constructor(connectionString: string) {
     this.pool = new Pool({
       connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: buildDatabaseSsl(),
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
