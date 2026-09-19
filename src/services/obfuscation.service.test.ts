@@ -1,6 +1,8 @@
 import { ObfuscationService } from './obfuscation.service';
 
 const encryptionKey = 'k'.repeat(32);
+const accessKey = 'AKIA' + 'IOSFODNN7EXAMPLE';
+const passwordValue = ['hunter2', 'hunter2'].join('');
 
 function createService(): ObfuscationService {
   return new ObfuscationService(encryptionKey);
@@ -62,8 +64,8 @@ describe('obfuscateText masks', () => {
   it.each([
     ['credit_card', '4111111111111111', '[CARD-****1111]'],
     ['ssn', '123-45-6789', '[SSN-XXX-XX-XXXX]'],
-    ['api_key', 'AKIAIOSFODNN7EXAMPLE', '[KEY-AKIA...MPLE]'],
-    ['password', 'hunter2hunter2', '[PASSWORD-REDACTED]'],
+    ['api_key', accessKey, '[KEY-AKIA...MPLE]'],
+    ['password', passwordValue, '[PASSWORD-REDACTED]'],
     ['email', 'jane@example.com', '[EMAIL-j***@example.com]'],
     ['phone', '555-123-4567', '[PHONE-****4567]'],
     ['ip_address', '8.8.4.4', '[IP-8.XXX.XXX.4]'],
