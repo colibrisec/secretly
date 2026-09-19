@@ -201,6 +201,10 @@ redis:
     enabled: true
 
 # External Database (if not using included PostgreSQL)
+# Note: when config.nodeEnv is "production" (the default), sslMode has no effect because
+# the application ignores ssl parameters in DATABASE_URL. TLS is controlled by the
+# DATABASE_SSL_REJECT_UNAUTHORIZED and DATABASE_SSL_CA_FILE variables, set through
+# extraEnvVars (mount a CA file with extraVolumes and extraVolumeMounts).
 externalDatabase:
   enabled: false
   host: ""

@@ -48,6 +48,9 @@ jobs:
     if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
+    concurrency:
+      group: coverage-badge
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -59,6 +62,7 @@ jobs:
       - name: Render badge
         run: node scripts/coverage-badge.mjs coverage/coverage-summary.json coverage.svg
       - name: Publish badge to the wiki
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

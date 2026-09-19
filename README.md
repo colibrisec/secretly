@@ -204,10 +204,14 @@ NODE_ENV=production
 SLACK_BOT_TOKEN=xoxb-your-token
 SLACK_APP_TOKEN=xapp-your-token
 SLACK_SIGNING_SECRET=your-secret
-DATABASE_URL=postgresql://user:pass@host:5432/secretly?ssl=true
+DATABASE_URL=postgresql://user:pass@host:5432/secretly
+DATABASE_SSL_REJECT_UNAUTHORIZED=true
+DATABASE_SSL_CA_FILE=/etc/secretly/db-ca.pem
 REDIS_URL=redis://user:pass@host:6379
 ENCRYPTION_KEY=your-32-character-minimum-key
 ```
+
+In production, TLS verification for the database connection is on by default and ssl parameters in `DATABASE_URL` are ignored; configure TLS with the `DATABASE_SSL_*` variables as described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Monitoring
 

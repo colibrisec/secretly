@@ -23,7 +23,7 @@
   "license": "GPL-3.0-only",
   "overrides": {
     "@babel/core": "^7.29.7",
-    "js-yaml": "^4.2.0"
+    "js-yaml": "^4.3.2"
   },
   "dependencies": {
     "@slack/bolt": "^4.0.0",
