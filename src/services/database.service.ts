@@ -1,14 +1,15 @@
 import { Pool } from 'pg';
 import { logger } from '../utils/logger';
-import { buildDatabaseSsl } from '../utils/database-ssl';
+import { buildDatabaseSsl, stripSslParameters } from '../utils/database-ssl';
 
 export class DatabaseService {
   public pool: Pool;
 
   constructor(connectionString: string) {
+    const ssl = buildDatabaseSsl();
     this.pool = new Pool({
-      connectionString,
-      ssl: buildDatabaseSsl(),
+      connectionString: ssl ? stripSslParameters(connectionString) : connectionString,
+      ssl,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
