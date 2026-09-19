@@ -7,6 +7,8 @@ jest.mock('./logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
+const verificationSetting = (verify: boolean) => ({ rejectUnauthorized: verify });
+
 describe('buildDatabaseSsl', () => {
   const originalEnvironment = process.env;
   let certificateDirectory: string;
@@ -37,7 +39,7 @@ describe('buildDatabaseSsl', () => {
   it('skips verification only when explicitly set to false', () => {
     process.env.NODE_ENV = 'production';
     process.env.DATABASE_SSL_REJECT_UNAUTHORIZED = 'false';
-    expect(buildDatabaseSsl()).toEqual({ rejectUnauthorized: false });
+    expect(buildDatabaseSsl()).toEqual(verificationSetting(false));
   });
 
   it.each(['true', 'TRUE', '0', ''])('keeps verification on for the value "%s"', value => {
@@ -67,7 +69,7 @@ describe('buildDatabaseSsl', () => {
     process.env.DATABASE_SSL_REJECT_UNAUTHORIZED = 'false';
     process.env.DATABASE_SSL_CA = 'inline-certificate-authority-pem';
 
-    expect(buildDatabaseSsl()).toEqual({ rejectUnauthorized: false, ca: 'inline-certificate-authority-pem' });
+    expect(buildDatabaseSsl()).toEqual({ ...verificationSetting(false), ca: 'inline-certificate-authority-pem' });
   });
 });
 
