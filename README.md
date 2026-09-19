@@ -241,6 +241,8 @@ The bot provides:
 4. Add tests
 5. Submit a pull request
 
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full guidelines.
+
 ## License
 
 GPLv3
