@@ -32,6 +32,7 @@ combined.log
 
 # Testing
 coverage/
+.superpowers/
 .nyc_output/
 
 # Temporary files

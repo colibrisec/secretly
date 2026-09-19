@@ -38,6 +38,14 @@ module.exports = [
     }
   },
   {
+    files: ['**/*.test.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.jest
+      }
+    }
+  },
+  {
     ignores: ['dist/', 'node_modules/', 'dist/**/*.js']
   }
 ];

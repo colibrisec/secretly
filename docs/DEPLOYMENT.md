@@ -88,9 +88,13 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 | `SLACK_SIGNING_SECRET` | Slack signing secret (required) | - |
 | `ENCRYPTION_KEY` | 32+ character encryption key | - |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://...` |
+| `DATABASE_SSL_REJECT_UNAUTHORIZED` | Set to `false` to skip database certificate verification in production | `true` |
+| `DATABASE_SSL_CA_FILE` | Path to a PEM certificate authority for a self-signed or private database CA (`DATABASE_SSL_CA` accepts the PEM inline) | - |
 | `REDIS_URL` | Redis connection string | `redis://...` |
 | `LOG_LEVEL` | Logging level | `info` |
 | `NODE_ENV` | Environment | `production` |
+
+Production database connections verify the server certificate. If your database uses a self-signed or private CA, mount the CA and set `DATABASE_SSL_CA_FILE`. With the Helm chart, pass it through `extraEnvVars` and `extraVolumes`/`extraVolumeMounts`. As a last resort, set `DATABASE_SSL_REJECT_UNAUTHORIZED=false`. In production the `DATABASE_SSL_*` variables control TLS, and any `ssl`, `sslmode`, `sslcert`, `sslkey` or `sslrootcert` parameters in `DATABASE_URL` are ignored.
 
 ### Health Checks
 
