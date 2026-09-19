@@ -8,6 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --coverage --ci",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
