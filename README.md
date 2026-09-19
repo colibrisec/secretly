@@ -1,5 +1,9 @@
 # Secretly - Slack Security Bot
 
+[![ci](https://github.com/colibrisec/secretly/actions/workflows/ci.yml/badge.svg)](https://github.com/colibrisec/secretly/actions/workflows/ci.yml)
+[![ojo](https://github.com/colibrisec/secretly/actions/workflows/ojo.yml/badge.svg)](https://github.com/colibrisec/secretly/actions/workflows/ojo.yml)
+[![Coverage](https://github.com/colibrisec/secretly/wiki/coverage.svg)](https://github.com/colibrisec/secretly/actions/workflows/ci.yml)
+
 A proactive Slack bot that detects and obfuscates sensitive information in real-time to prevent data leaks.
 
 ## Features
