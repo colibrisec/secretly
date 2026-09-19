@@ -32,6 +32,8 @@ jobs:
         run: npm run test:ci
       - name: Build
         run: npm run build
+      - name: Test release scripts
+        run: bash scripts/next-version.test.sh
       - name: Coverage report
         uses: getsentry/codecov-action@5f3f449cf9e909fd63513a48f27c57f090a5f321 # v0.4.0
         with:
