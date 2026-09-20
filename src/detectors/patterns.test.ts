@@ -1,4 +1,4 @@
-import { calculateEntropy, detectHighEntropyStrings, detectSensitiveData } from './patterns';
+import { calculateEntropy, detectHighEntropyStrings, detectSensitiveData, patterns } from './patterns';
 
 function namesDetectedIn(text: string, enabledTypes?: string[]): string[] {
   return detectSensitiveData(text, enabledTypes).map(result => result.pattern.name);
@@ -19,6 +19,24 @@ describe('detectSensitiveData', () => {
 
   it('ignores a social security number with an all-zero area', () => {
     expect(namesDetectedIn('ssn 000-12-3456')).not.toContain('US Social Security Number');
+  });
+
+  it('detects a credit card number that needs digit doubling above nine', () => {
+    expect(namesDetectedIn('card 378282246310005 ok')).toContain('Credit Card');
+  });
+
+  it('rejects card numbers outside the valid length range', () => {
+    const validator = patterns.find(p => p.name === 'Credit Card')!.validator!;
+    expect(validator('4111')).toBe(false);
+    expect(validator('4'.repeat(20))).toBe(false);
+  });
+
+  it('detects an AWS secret key', () => {
+    expect(namesDetectedIn('secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY end')).toContain('AWS Secret Key');
+  });
+
+  it('ignores a 40 character token that has no digits', () => {
+    expect(namesDetectedIn('token ' + 'abcdefghij'.repeat(2) + 'ABCDEFGHIJ'.repeat(2) + ' end')).not.toContain('AWS Secret Key');
   });
 
   it('detects an AWS access key', () => {
