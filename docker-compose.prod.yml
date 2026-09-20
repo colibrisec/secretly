@@ -16,7 +16,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-change_this_in_production}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
 
   redis:
     deploy:
@@ -27,7 +27,7 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-change_this_in_production}"
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
 
   app:
     deploy:
@@ -47,8 +47,8 @@ services:
     environment:
       NODE_ENV: production
       LOG_LEVEL: warn
-      DATABASE_URL: "postgresql://secretly_user:${POSTGRES_PASSWORD:-change_this_in_production}@postgres:5432/secretly"
-      REDIS_URL: "redis://:${REDIS_PASSWORD:-change_this_in_production}@redis:6379"
+      DATABASE_URL: "postgresql://secretly_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/secretly"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379"
 
   # Remove development tools
   pgadmin:
