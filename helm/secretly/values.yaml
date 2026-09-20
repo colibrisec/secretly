@@ -153,9 +153,12 @@ postgresql:
       requests:
         memory: 128Mi
         cpu: 100m
+  serviceAccount:
     automountServiceAccountToken: false
   metrics:
     enabled: true
+    image:
+      pullPolicy: Always
     resources:
       limits:
         memory: 64Mi
@@ -185,7 +188,11 @@ redis:
       requests:
         memory: 64Mi
         cpu: 50m
-    automountServiceAccountToken: false
+    serviceAccount:
+      automountServiceAccountToken: false
+  replica:
+    serviceAccount:
+      automountServiceAccountToken: false
   metrics:
     enabled: true
     resources:
