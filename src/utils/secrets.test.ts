@@ -47,6 +47,12 @@ describe('secrets', () => {
       expect(getSecret('TEST_SECRET')).toBe('from-environment');
     });
 
+    it('falls back to the environment variable when the file cannot be read', () => {
+      process.env.TEST_SECRET_FILE = secretsDirectory;
+      process.env.TEST_SECRET = 'from-environment';
+      expect(getSecret('TEST_SECRET')).toBe('from-environment');
+    });
+
     it('falls back to the environment variable when the file is empty', () => {
       process.env.TEST_SECRET_FILE = writeSecretFile('   \n');
       process.env.TEST_SECRET = 'from-environment';
