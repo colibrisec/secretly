@@ -122,21 +122,21 @@ async function initializeServices() {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: '*Why We Obfuscate Sensitive Data*\\n\\nProtecting sensitive information in Slack helps prevent:\\n• Data breaches\\n• Compliance violations\\n• Unauthorized access\\n• Identity theft'
+              text: '*Why We Obfuscate Sensitive Data*\n\nProtecting sensitive information in Slack helps prevent:\n• Data breaches\n• Compliance violations\n• Unauthorized access\n• Identity theft'
             }
           },
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: '*Types of Data We Protect*\\n\\n• Credit card numbers\\n• Social Security Numbers\\n• API keys and tokens\\n• Passwords\\n• Database connection strings\\n• Personal identifiable information (PII)'
+              text: '*Types of Data We Protect*\n\n• Credit card numbers\n• Social Security Numbers\n• API keys and tokens\n• Passwords\n• Database connection strings\n• Personal identifiable information (PII)'
             }
           },
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: '*Best Practices*\\n\\n• Use secure credential management systems\\n• Share sensitive data through encrypted channels\\n• Never paste passwords or keys in plain text\\n• Use environment variables for configuration'
+              text: '*Best Practices*\n\n• Use secure credential management systems\n• Share sensitive data through encrypted channels\n• Never paste passwords or keys in plain text\n• Use environment variables for configuration'
             }
           }
         ],
@@ -242,6 +242,16 @@ async function initializeServices() {
 
     const channelId = view.private_metadata;
     const userId = body.user.id;
+
+    // Re-check on submit: admin status may have changed since the modal opened.
+    if (!(await permissionService.isChannelAdmin(userId, channelId))) {
+      await client.chat.postEphemeral({
+        channel: channelId,
+        user: userId,
+        text: '⚠️ Only channel administrators can configure Secretly settings.'
+      });
+      return;
+    }
 
     const rateLimitCheck = await rateLimiter.checkLimit(userId, channelId);
     if (!rateLimitCheck.allowed) {

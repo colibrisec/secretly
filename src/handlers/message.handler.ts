@@ -80,14 +80,26 @@ export class MessageHandler {
           severity: d.pattern.severity,
           description: d.pattern.description
         })),
-        ...highEntropyStrings.map(str => ({
-          match: str,
-          index: text.indexOf(str),
-          type: 'high_entropy' as const,
-          severity: 'medium' as const,
-          description: 'High entropy string detected (possible secret)'
-        }))
+        // Mask every occurrence, not just the first one.
+        ...[...new Set(highEntropyStrings)].flatMap(str =>
+          this.findAllIndexes(text, str).map(index => ({
+            match: str,
+            index,
+            type: 'high_entropy' as const,
+            severity: 'medium' as const,
+            description: 'High entropy string detected (possible secret)'
+          }))
+        )
       ];
+
+      // What gets stored and audited must never contain the matched secret.
+      const detectionMetadata = matches.map(({ type, severity, description, index, match }) => ({
+        type,
+        severity,
+        description,
+        index,
+        length: match.length
+      }));
 
       const { obfuscated } = this.obfuscationService.obfuscateText(
         text,
@@ -103,7 +115,7 @@ export class MessageHandler {
         userId: user,
         originalContent: this.obfuscationService.encrypt(text),
         obfuscatedContent: obfuscated,
-        detectionType: JSON.stringify(matches),
+        detectionType: detectionMetadata,
         severity: this.calculateOverallSeverity(matches),
         createdAt: new Date()
       });
@@ -129,7 +141,7 @@ export class MessageHandler {
         userId: user,
         channelId: channel,
         messageTs: ts,
-        detections: matches,
+        detections: detectionMetadata,
         action: 'obfuscated',
         timestamp: new Date()
       });
@@ -202,6 +214,16 @@ export class MessageHandler {
     }
   }
 
+  private findAllIndexes(text: string, value: string): number[] {
+    const indexes: number[] = [];
+    let index = text.indexOf(value);
+    while (index !== -1) {
+      indexes.push(index);
+      index = text.indexOf(value, index + value.length);
+    }
+    return indexes;
+  }
+
   private calculateOverallSeverity(matches: Array<{ severity: string }>): string {
     const severityLevels = ['low', 'medium', 'high', 'critical'];
     let maxSeverity = 0;
@@ -230,9 +252,9 @@ export class MessageHandler {
   private createEphemeralMessage(summary: Map<string, number>, recordId: string): string {
     const items = Array.from(summary.entries())
       .map(([type, count]) => `• ${count} ${type.replace('_', ' ')}(s)`)
-      .join('\\n');
+      .join('\n');
 
-    return `🔒 *Sensitive Data Detected and Obfuscated*\\n\\n${items}\\n\\nRecord ID: \`${recordId}\``;
+    return `🔒 *Sensitive Data Detected and Obfuscated*\n\n${items}\n\nRecord ID: \`${recordId}\``;
   }
 
   private createEphemeralBlocks(

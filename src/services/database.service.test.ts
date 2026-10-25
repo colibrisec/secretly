@@ -53,21 +53,27 @@ describe('DatabaseService', () => {
   });
 
   describe('initialize', () => {
-    it('creates every table', async () => {
+    it('creates every table and index', async () => {
       await service.initialize();
       const statements = query.mock.calls.map(([sql]) => sql as string);
-      expect(statements).toHaveLength(4);
       ['obfuscation_records', 'audit_logs', 'channel_configs', 'user_permissions'].forEach(table => {
         expect(statements.some(sql => sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`))).toBe(true);
       });
+      expect(statements.filter(sql => sql.startsWith('CREATE INDEX IF NOT EXISTS'))).toHaveLength(5);
       expect(logger.info).toHaveBeenCalledWith('Database initialized successfully');
     });
 
-    it('keeps creating the remaining tables when one statement fails', async () => {
+    it('does not put index clauses inside CREATE TABLE', async () => {
+      await service.initialize();
+      const tables = query.mock.calls.map(([sql]) => sql as string).filter(sql => sql.includes('CREATE TABLE'));
+      tables.forEach(sql => expect(sql).not.toMatch(/\bINDEX\b/));
+    });
+
+    it('fails startup when a statement fails', async () => {
       query.mockRejectedValueOnce(new Error('syntax error'));
-      await expect(service.initialize()).resolves.toBeUndefined();
-      expect(query).toHaveBeenCalledTimes(4);
-      expect(logger.error).toHaveBeenCalledTimes(1);
+      await expect(service.initialize()).rejects.toThrow('syntax error');
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(logger.info).not.toHaveBeenCalledWith('Database initialized successfully');
     });
 
     it('rethrows when initialization fails', async () => {
@@ -97,9 +103,18 @@ describe('DatabaseService', () => {
       ]);
     });
 
-    it('returns the record for an id', async () => {
-      query.mockResolvedValue({ rows: [{ id: 'rec1' }] });
-      await expect(service.getObfuscationRecord('rec1')).resolves.toEqual({ id: 'rec1' });
+    it('returns the record for an id in camelCase', async () => {
+      const createdAt = new Date('2026-01-01T00:00:00Z');
+      query.mockResolvedValue({ rows: [{
+        id: 'rec1', message_ts: '1.2', channel_id: 'C1', user_id: 'U1', original_content: 'enc',
+        obfuscated_content: 'masked', detection_type: [{ type: 'ssn' }], severity: 'high',
+        created_at: createdAt, dismissed_at: null, dismissed_by: null,
+      }] });
+      await expect(service.getObfuscationRecord('rec1')).resolves.toEqual({
+        id: 'rec1', messageTs: '1.2', channelId: 'C1', userId: 'U1', originalContent: 'enc',
+        obfuscatedContent: 'masked', detectionType: [{ type: 'ssn' }], severity: 'high', createdAt,
+        dismissedAt: undefined, dismissedBy: undefined,
+      });
       expect(query).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['rec1']);
     });
 
@@ -114,15 +129,26 @@ describe('DatabaseService', () => {
 
     it('deletes records older than the retention period', async () => {
       await service.cleanupOldRecords(30);
-      expect(query).toHaveBeenCalledWith(expect.stringContaining('INTERVAL \'30 days\''));
+      expect(query).toHaveBeenCalledWith(expect.stringContaining('make_interval(days => $1)'), [30]);
+    });
+
+    it('rejects a retention period that is not a non-negative integer', async () => {
+      await expect(service.cleanupOldRecords(1.5)).rejects.toThrow('non-negative integer');
+      await expect(service.cleanupOldRecords(-1)).rejects.toThrow('non-negative integer');
+      expect(query).not.toHaveBeenCalled();
     });
   });
 
   describe('channel configs', () => {
     it('returns a stored config', async () => {
-      const row = { channel_id: 'C1', enabled: false };
-      query.mockResolvedValue({ rows: [row] });
-      await expect(service.getChannelConfig('C1')).resolves.toBe(row);
+      query.mockResolvedValue({ rows: [{
+        channel_id: 'C1', enabled: false, sensitivity_level: 'high', enabled_detectors: ['ssn'],
+        detect_high_entropy: false, entropy_threshold: 5, exempted_users: ['U1'],
+      }] });
+      await expect(service.getChannelConfig('C1')).resolves.toEqual({
+        channelId: 'C1', enabled: false, sensitivityLevel: 'high', enabledDetectors: ['ssn'],
+        detectHighEntropy: false, entropyThreshold: 5, exemptedUsers: ['U1'],
+      });
       expect(query).toHaveBeenCalledTimes(1);
     });
 
@@ -160,9 +186,17 @@ describe('DatabaseService', () => {
 
   describe('user permissions', () => {
     it('returns the stored permissions', async () => {
-      const row = { user_id: 'U1', is_admin: true };
-      query.mockResolvedValue({ rows: [row] });
-      await expect(service.getUserPermissions('U1', 'C1')).resolves.toBe(row);
+      query.mockResolvedValue({ rows: [{
+        user_id: 'U1', channel_id: 'C1', can_dismiss_low: true, can_dismiss_medium: false,
+        can_dismiss_high: true, can_dismiss_critical: null, is_admin: true,
+      }] });
+      await expect(service.getUserPermissions('U1', 'C1')).resolves.toEqual({
+        canDismissLow: true,
+        canDismissMedium: false,
+        canDismissHigh: true,
+        canDismissCritical: false,
+        isAdmin: true,
+      });
       expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM user_permissions'), ['U1', 'C1']);
     });
 

@@ -1,3 +1,4 @@
+import path from 'path';
 import winston from 'winston';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
@@ -22,15 +23,18 @@ export const logger = winston.createLogger({
 });
 
 if (process.env.NODE_ENV === 'production') {
+  // /app is read-only in the container; the Helm chart mounts /app/logs.
+  const logDir = process.env.LOG_DIR || 'logs';
+
   logger.add(new winston.transports.File({
-    filename: 'error.log',
+    filename: path.join(logDir, 'error.log'),
     level: 'error',
     maxsize: 5242880,
     maxFiles: 5
   }));
 
   logger.add(new winston.transports.File({
-    filename: 'combined.log',
+    filename: path.join(logDir, 'combined.log'),
     maxsize: 5242880,
     maxFiles: 5
   }));

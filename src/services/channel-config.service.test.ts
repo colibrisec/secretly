@@ -15,14 +15,15 @@ describe('ChannelConfigService', () => {
   const databaseService = { getChannelConfig, createChannelConfig, pool: { query } } as unknown as DatabaseService;
   let service: ChannelConfigService;
 
+  // DatabaseService.getChannelConfig returns camelCase fields.
   const storedRow = (overrides: Record<string, unknown> = {}) => ({
-    channel_id: 'C1',
+    channelId: 'C1',
     enabled: true,
-    sensitivity_level: 'medium',
-    enabled_detectors: ['ssn'],
-    detect_high_entropy: true,
-    entropy_threshold: 4.5,
-    exempted_users: ['U1'],
+    sensitivityLevel: 'medium',
+    enabledDetectors: ['ssn'],
+    detectHighEntropy: true,
+    entropyThreshold: 4.5,
+    exemptedUsers: ['U1'],
     ...overrides,
   });
 
@@ -35,7 +36,7 @@ describe('ChannelConfigService', () => {
   describe('getChannelConfig', () => {
     it('maps a stored row to the channel config', async () => {
       getChannelConfig.mockResolvedValue(storedRow({
-        enabled: false, sensitivity_level: 'high', detect_high_entropy: false, entropy_threshold: 3,
+        enabled: false, sensitivityLevel: 'high', detectHighEntropy: false, entropyThreshold: 3,
       }));
       await expect(service.getChannelConfig('C1')).resolves.toEqual({
         channelId: 'C1',
@@ -154,7 +155,7 @@ describe('ChannelConfigService', () => {
     });
 
     it('removes a user', async () => {
-      getChannelConfig.mockResolvedValue(storedRow({ exempted_users: ['U1', 'U2'] }));
+      getChannelConfig.mockResolvedValue(storedRow({ exemptedUsers: ['U1', 'U2'] }));
       await service.removeExemptedUser('C1', 'U1');
       expect(createChannelConfig).toHaveBeenCalledWith(expect.objectContaining({ exemptedUsers: ['U2'] }));
     });
@@ -174,7 +175,7 @@ describe('ChannelConfigService', () => {
     });
 
     it('disables a detector', async () => {
-      getChannelConfig.mockResolvedValue(storedRow({ enabled_detectors: ['ssn', 'email'] }));
+      getChannelConfig.mockResolvedValue(storedRow({ enabledDetectors: ['ssn', 'email'] }));
       await service.disableDetector('C1', 'ssn');
       expect(createChannelConfig).toHaveBeenCalledWith(expect.objectContaining({ enabledDetectors: ['email'] }));
     });

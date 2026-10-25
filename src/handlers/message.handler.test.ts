@@ -149,7 +149,28 @@ describe('MessageHandler', () => {
           createdAt: expect.any(Date),
         }));
         const stored = storeObfuscationRecord.mock.calls[0][0];
-        expect(JSON.parse(stored.detectionType)).toHaveLength(3);
+        expect(stored.detectionType).toEqual([
+          expect.objectContaining({ type: 'ssn', severity: 'high', index: 10, length: 11 }),
+          expect.objectContaining({ type: 'api_key', severity: 'critical', index: 30, length: 20 }),
+          expect.objectContaining({ type: 'ssn', severity: 'low', index: 50, length: 11 }),
+        ]);
+      });
+
+      it('never stores or audits the matched secrets in plaintext', async () => {
+        await handler.handleMessage(event, say);
+        const stored = JSON.stringify(storeObfuscationRecord.mock.calls[0][0].detectionType);
+        const audited = JSON.stringify(logObfuscation.mock.calls[0][0].detections);
+        for (const secret of ['123-45-6789', 'AKIAIOSFODNN7EXAMPLE', '987-65-4321']) {
+          expect(stored).not.toContain(secret);
+          expect(audited).not.toContain(secret);
+        }
+      });
+
+      it('uses real line breaks in the ephemeral text', async () => {
+        await handler.handleMessage(event, say);
+        const { text } = postEphemeral.mock.calls[0][0];
+        expect(text).toContain('\n');
+        expect(text).not.toContain('\\n');
       });
 
       it('replaces the original message with the obfuscated text', async () => {
@@ -208,6 +229,15 @@ describe('MessageHandler', () => {
           { match: 'x9Qz7Lm2Vb8Nc4Rt', index: 6, type: 'high_entropy' },
         ]);
         expect(storeObfuscationRecord).toHaveBeenCalledWith(expect.objectContaining({ severity: 'medium' }));
+      });
+
+      it('masks every occurrence of a repeated high entropy string', async () => {
+        mockedDetectHighEntropyStrings.mockReturnValue(['x9Qz7Lm2Vb8Nc4Rt', 'x9Qz7Lm2Vb8Nc4Rt']);
+        await handler.handleMessage({ ...event, text: 'x9Qz7Lm2Vb8Nc4Rt and x9Qz7Lm2Vb8Nc4Rt' }, say);
+        expect(obfuscateText).toHaveBeenCalledWith('x9Qz7Lm2Vb8Nc4Rt and x9Qz7Lm2Vb8Nc4Rt', [
+          { match: 'x9Qz7Lm2Vb8Nc4Rt', index: 0, type: 'high_entropy' },
+          { match: 'x9Qz7Lm2Vb8Nc4Rt', index: 21, type: 'high_entropy' },
+        ]);
       });
 
       it('leaves the message alone when there is nothing to obfuscate', async () => {
