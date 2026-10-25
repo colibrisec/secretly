@@ -46,6 +46,7 @@ jobs:
           type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
     - name: Build and push Docker image
+      id: build
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -57,30 +58,24 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
 
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@v0.36.0
+    - name: Scan image with ojo
+      uses: colibrisec/ojo-action@a96f5b8e59824026140fc96ecc72adcd099f8d24 # main (adds sarif-omit-suppressed)
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-        format: 'sarif'
-        output: 'trivy-vuln-results.sarif'
-        scanners: 'vuln'
+        ojo-version: 'v0.2.4'
+        sarif-omit-suppressed: 'true'
+        vulnerabilities: 'false'
+        secrets: 'false'
+        iac: 'false'
+        sast: 'false'
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
-    - name: Run Trivy secret scanner
-      uses: aquasecurity/trivy-action@v0.36.0
+    - name: Upload to Balam
+      if: ${{ always() && hashFiles('ojo-image-report.json') != '' }}
+      uses: colibrisec/balam-action@88a6df7e085a860ea6d11719789bb197807c0402 # v1
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-        format: 'sarif'
-        output: 'trivy-secret-results.sarif'
-        scanners: 'secret'
-
-    - name: Upload Trivy vulnerability results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: 'trivy-vuln-results.sarif'
-        category: 'trivy-container-vulnerabilities'
-
-    - name: Upload Trivy secret results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: 'trivy-secret-results.sarif'
-        category: 'trivy-container-secrets'
+        file: ojo-image-report.json
+        scan-type: 'OJO Scan'
+        balam-url: ${{ secrets.BALAM_URL }}
+        balam-token: ${{ secrets.BALAM_TOKEN }}
+        product-name: secretly
+        engagement-name: 'Container Images'

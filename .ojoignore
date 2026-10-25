@@ -1,6 +1,5 @@
 slack-token .env.example  # placeholder token (expires: 2027-09-19)
 db-connection-string .env.example  # placeholder credentials (expires: 2027-09-19)
-generic-secret-assignment .github/workflows/docker-build.yml  # scan category label (expires: 2027-09-19)
 slack-token .github/workflows/helm-release.yml  # test placeholder token (expires: 2027-09-19)
 slack-token README.md  # placeholder token (expires: 2027-09-19)
 generic-secret-assignment README.md  # placeholder token (expires: 2027-09-19)

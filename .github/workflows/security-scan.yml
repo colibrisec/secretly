@@ -43,12 +43,12 @@ jobs:
       with:
         category: "/language:${{matrix.language}}"
 
+  # Dependency, secret and IaC scanning runs in ojo.yml.
   dependency-scan:
     name: Dependency Vulnerability Scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v5
@@ -64,63 +64,6 @@ jobs:
 
     - name: Run npm audit
       run: npm audit --audit-level=moderate
-
-    - name: Run Trivy vulnerability scanner on dependencies
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-deps-results.sarif'
-        scanners: 'vuln'
-
-    - name: Upload Trivy dependency scan results
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: 'trivy-deps-results.sarif'
-        category: 'trivy-dependencies'
-
-  secrets-scan:
-    name: Secret Detection
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-
-    - name: Run Trivy secret scanner
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-secrets-results.sarif'
-        scanners: 'secret'
-
-    - name: Upload Trivy secret scan results
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: 'trivy-secrets-results.sarif'
-        category: 'trivy-secrets'
-
-    - name: Run Trivy configuration scanner
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'config'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-config-results.sarif'
-        scanners: 'config'
-
-    - name: Upload Trivy config scan results
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: 'trivy-config-results.sarif'
-        category: 'trivy-config'
 
   helm-security:
     name: Helm Security Scan
