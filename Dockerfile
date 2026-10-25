@@ -24,10 +24,12 @@ FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b44797113971
 
 # hadolint ignore=DL3017,DL3018
 RUN apk add --no-cache dumb-init && \
-    apk upgrade --no-cache libcrypto3 libssl3 && \
+    apk upgrade --no-cache libcrypto3 libssl3 zlib && \
     rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx && \
     addgroup -g 10001 -S nodejs && \
-    adduser -S nodejs -u 10001
+    adduser -S nodejs -u 10001 -G nodejs && \
+    mkdir -p /app/logs && \
+    chown nodejs:nodejs /app/logs
 
 WORKDIR /app
 
@@ -43,8 +45,8 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 # Copy configuration files
 COPY --chown=nodejs:nodejs .env.example ./.env.example
 
-# Switch to non-root user
-USER nodejs
+# Switch to non-root user (numeric so Kubernetes runAsNonRoot can verify it)
+USER 10001:10001
 
 # Expose port
 EXPOSE 3000
