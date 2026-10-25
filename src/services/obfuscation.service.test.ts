@@ -47,6 +47,57 @@ describe('encrypt and decrypt', () => {
   it('rejects a value without an initialization vector', () => {
     expect(() => createService().decrypt('no-separator')).toThrow('Invalid encrypted format');
   });
+
+  it('writes the versioned AES-GCM format', () => {
+    const encrypted = createService().encrypt('value');
+    expect(encrypted.startsWith('v2:')).toBe(true);
+    // 12-byte IV + 16-byte tag + 5 bytes of ciphertext
+    expect(Buffer.from(encrypted.slice(3), 'base64')).toHaveLength(33);
+  });
+
+  it('round-trips unicode and empty text', () => {
+    const service = createService();
+    expect(service.decrypt(service.encrypt('ünïcødé 🔒'))).toBe('ünïcødé 🔒');
+    expect(service.decrypt(service.encrypt(''))).toBe('');
+  });
+
+  it('rejects ciphertext that was tampered with', () => {
+    const service = createService();
+    const data = Buffer.from(service.encrypt('4111111111111111').slice(3), 'base64');
+    data[data.length - 1] ^= 0x01;
+    expect(() => service.decrypt('v2:' + data.toString('base64'))).toThrow();
+  });
+
+  it('rejects ciphertext made with a different key', () => {
+    const other = new ObfuscationService('o'.repeat(32));
+    expect(() => createService().decrypt(other.encrypt('secret'))).toThrow();
+  });
+
+  it('rejects a truncated v2 value', () => {
+    expect(() => createService().decrypt('v2:' + Buffer.alloc(20).toString('base64'))).toThrow('Invalid encrypted format');
+  });
+});
+
+describe('decrypting records written by the old crypto-js code', () => {
+  // Generated with the previous CryptoJS.AES implementation and this key.
+  const legacyKey = 'legacy-test-key-0123456789abcdef!';
+  const fixtures: Array<[string, string]> = [
+    ['my ssn is 123-45-6789', '6446cdff6ba8e3d903f03aa5da7982f9:U2FsdGVkX1+igutL/eeudzt8FFpjOr3MNzmBzje/bKfrfDt+1wpZY/IN2NtyR+ct'],
+    ['ünïcødé 🔒 secret', 'e2a7fe025fe4fb3c697f2ca7c8c38f12:U2FsdGVkX1/WRcAEPJGVncp7WeswRt9pKrdpgvC52xcz+HAxhvCWc7hWWR1ac2OJ'],
+    ['', '0216037f551b6a1d3405150582b8c3b3:U2FsdGVkX19fvmsgjvvTCdNwA5vknxjh1IYofTWrVWE='],
+  ];
+
+  it.each(fixtures)('restores %j', (plain, encrypted) => {
+    expect(new ObfuscationService(legacyKey).decrypt(encrypted)).toBe(plain);
+  });
+
+  it('rejects a legacy value without the OpenSSL salt header', () => {
+    expect(() => createService().decrypt('00:' + Buffer.from('not salted at all').toString('base64'))).toThrow('Invalid encrypted format');
+  });
+
+  it('rejects a legacy value made with a different key', () => {
+    expect(() => createService().decrypt(fixtures[0][1])).toThrow();
+  });
 });
 
 describe('validateDecryption', () => {

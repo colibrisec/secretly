@@ -28,7 +28,6 @@
   "dependencies": {
     "@slack/bolt": "^4.0.0",
     "@slack/web-api": "^7.0.0",
-    "crypto-js": "^4.2.0",
     "dotenv": "^17.0.0",
     "express": "^5.0.0",
     "express-rate-limit": "^8.0.1",
@@ -40,7 +39,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
-    "@types/crypto-js": "^4.2.0",
     "@types/express": "^5.0.0",
     "@types/express-rate-limit": "^6.0.0",
     "@types/jest": "^30.0.0",
