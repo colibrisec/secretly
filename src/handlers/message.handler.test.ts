@@ -1,6 +1,6 @@
 import { App, SayFn } from '@slack/bolt';
 import { GenericMessageEvent } from '@slack/types';
-import { MessageHandler } from './message.handler';
+import { MessageHandler, toScannableMessage } from './message.handler';
 import { detectSensitiveData, detectHighEntropyStrings } from '../detectors/patterns';
 import { ObfuscationService } from '../services/obfuscation.service';
 import { AuditService } from '../services/audit.service';
@@ -31,7 +31,10 @@ const detection = (type: string, severity: string, match: string, index: number)
 });
 
 describe('MessageHandler', () => {
-  const update = jest.fn();
+  const postMessage = jest.fn();
+  const botDelete = jest.fn();
+  const usersInfo = jest.fn();
+  const adminDelete = jest.fn();
   const postEphemeral = jest.fn();
   const obfuscateText = jest.fn();
   const generateId = jest.fn();
@@ -46,6 +49,7 @@ describe('MessageHandler', () => {
   const storeObfuscationRecord = jest.fn();
   const getObfuscationRecord = jest.fn();
   const markObfuscationDismissed = jest.fn();
+  const setRepostTs = jest.fn();
   const checkLimit = jest.fn();
   let handler: MessageHandler;
 
@@ -70,14 +74,20 @@ describe('MessageHandler', () => {
     encrypt.mockReturnValue('encrypted-text');
     decrypt.mockReturnValue('original text');
 
+    adminDelete.mockResolvedValue({ ok: true });
+    postMessage.mockResolvedValue({ ok: true, ts: '9.9' });
+    botDelete.mockResolvedValue({ ok: true });
+    usersInfo.mockResolvedValue({ user: { name: 'ada', profile: { display_name: 'Ada', image_72: 'https://img/ada.png' } } });
+
     handler = new MessageHandler(
-      { client: { chat: { update, postEphemeral } } } as unknown as App,
+      { client: { chat: { postMessage, postEphemeral, delete: botDelete }, users: { info: usersInfo } } } as unknown as App,
       { obfuscateText, generateId, encrypt, decrypt } as unknown as ObfuscationService,
       { logObfuscation, logDismissal, logError } as unknown as AuditService,
       { canUserDismiss, isUserExempted } as unknown as PermissionService,
       { getChannelConfig } as unknown as ChannelConfigService,
-      { storeObfuscationRecord, getObfuscationRecord, markObfuscationDismissed } as unknown as DatabaseService,
-      { checkLimit } as unknown as RateLimiter
+      { storeObfuscationRecord, getObfuscationRecord, markObfuscationDismissed, setRepostTs } as unknown as DatabaseService,
+      { checkLimit } as unknown as RateLimiter,
+      { chat: { delete: adminDelete } }
     );
   });
 
@@ -114,8 +124,9 @@ describe('MessageHandler', () => {
     it('leaves a message without detections untouched', async () => {
       await handler.handleMessage(event, say);
       expect(mockedDetectSensitiveData).toHaveBeenCalledWith(event.text, channelConfig.enabledDetectors);
-      expect(update).not.toHaveBeenCalled();
+      expect(postMessage).not.toHaveBeenCalled();
       expect(storeObfuscationRecord).not.toHaveBeenCalled();
+      expect(adminDelete).not.toHaveBeenCalled();
     });
 
     describe('with detections', () => {
@@ -174,15 +185,111 @@ describe('MessageHandler', () => {
         expect(text).not.toContain('\\n');
       });
 
-      it('replaces the original message with the obfuscated text', async () => {
+      it('deletes the original with the admin token, then reposts the masked text as the author', async () => {
         await handler.handleMessage(event, say);
-        expect(update).toHaveBeenCalledWith({ channel: 'C1', ts: '1.2', text: 'my ssn is [SSN-XXX-XX-XXXX]' });
+        expect(adminDelete).toHaveBeenCalledWith({ channel: 'C1', ts: '1.2' });
+        expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+          channel: 'C1',
+          text: 'my ssn is [SSN-XXX-XX-XXXX]',
+          username: 'Ada',
+          icon_url: 'https://img/ada.png',
+          unfurl_links: false,
+        }));
+        const repost = postMessage.mock.calls[0][0];
+        expect(repost.thread_ts).toBeUndefined();
+        expect(JSON.stringify(repost.blocks)).toContain('Sent by <@U1>');
+        expect(adminDelete.mock.invocationCallOrder[0]).toBeLessThan(postMessage.mock.invocationCallOrder[0]);
+        expect(setRepostTs).toHaveBeenCalledWith('rec1', '9.9');
+      });
+
+      it('never reposts the original text', async () => {
+        await handler.handleMessage(event, say);
+        expect(JSON.stringify(postMessage.mock.calls)).not.toContain('123-45-6789');
+      });
+
+      it('keeps a thread reply in its thread', async () => {
+        await handler.handleMessage({ ...event, thread_ts: '1.0' } as GenericMessageEvent, say);
+        expect(storeObfuscationRecord).toHaveBeenCalledWith(expect.objectContaining({ threadTs: '1.0' }));
+        expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ thread_ts: '1.0' }));
+        expect(postEphemeral).toHaveBeenCalledWith(expect.objectContaining({ thread_ts: '1.0' }));
+      });
+
+      it('warns the author and does not repost when the original cannot be deleted', async () => {
+        adminDelete.mockRejectedValue(new Error('cant_delete_message'));
+        await handler.handleMessage(event, say);
+        expect(postMessage).not.toHaveBeenCalled();
+        expect(postEphemeral).toHaveBeenCalledTimes(1);
+        expect(postEphemeral).toHaveBeenCalledWith(expect.objectContaining({
+          channel: 'C1', user: 'U1', text: expect.stringContaining('could not be removed automatically'),
+        }));
+        expect(logError).toHaveBeenCalledWith(expect.objectContaining({
+          messageTs: '1.2', error: 'Could not remove message: cant_delete_message',
+        }));
+        expect(logObfuscation).not.toHaveBeenCalled();
+      });
+
+      it('warns inside the thread when a reply cannot be deleted', async () => {
+        adminDelete.mockRejectedValue(new Error('cant_delete_message'));
+        await handler.handleMessage({ ...event, thread_ts: '1.0' } as GenericMessageEvent, say);
+        expect(postEphemeral).toHaveBeenCalledWith(expect.objectContaining({ thread_ts: '1.0' }));
+      });
+
+      it('reports an unknown removal error for a non-error value', async () => {
+        adminDelete.mockRejectedValue('nope');
+        await handler.handleMessage(event, say);
+        expect(logError).toHaveBeenCalledWith(expect.objectContaining({ error: 'Could not remove message: unknown error' }));
+      });
+
+      it('still tells the author and audits when the repost fails', async () => {
+        postMessage.mockRejectedValue(new Error('slack down'));
+        await handler.handleMessage(event, say);
+        expect(adminDelete).toHaveBeenCalled();
+        expect(setRepostTs).not.toHaveBeenCalled();
+        expect(postEphemeral).toHaveBeenCalled();
+        expect(logObfuscation).toHaveBeenCalled();
+      });
+
+      it('does not record a repost timestamp when Slack returns none', async () => {
+        postMessage.mockResolvedValue({ ok: true });
+        await handler.handleMessage(event, say);
+        expect(setRepostTs).not.toHaveBeenCalled();
+      });
+
+      it('falls back to the bot identity when the author profile cannot be read', async () => {
+        usersInfo.mockRejectedValue(new Error('users_not_found'));
+        await handler.handleMessage(event, say);
+        const repost = postMessage.mock.calls[0][0];
+        expect(repost.username).toBeUndefined();
+        expect(repost.icon_url).toBeUndefined();
+        expect(JSON.stringify(repost.blocks)).toContain('Sent by <@U1>');
+      });
+
+      it('uses the real name, then the handle, when there is no display name', async () => {
+        usersInfo.mockResolvedValueOnce({ user: { name: 'ada', profile: { real_name: 'Ada Lovelace' } } });
+        await handler.handleMessage(event, say);
+        expect(postMessage.mock.calls[0][0].username).toBe('Ada Lovelace');
+        expect(postMessage.mock.calls[0][0].icon_url).toBeUndefined();
+
+        usersInfo.mockResolvedValueOnce({ user: { name: 'ada', profile: {} } });
+        await handler.handleMessage({ ...event, user: 'U7' } as GenericMessageEvent, say);
+        expect(postMessage.mock.calls[1][0].username).toBe('ada');
+
+        usersInfo.mockResolvedValueOnce({});
+        await handler.handleMessage({ ...event, user: 'U8' } as GenericMessageEvent, say);
+        expect(postMessage.mock.calls[2][0].username).toBeUndefined();
+      });
+
+      it('caches author profiles', async () => {
+        await handler.handleMessage(event, say);
+        await handler.handleMessage(event, say);
+        expect(usersInfo).toHaveBeenCalledTimes(1);
       });
 
       it('tells the author what was obfuscated, with a dismiss button for the record', async () => {
         await handler.handleMessage(event, say);
         const message = postEphemeral.mock.calls[0][0];
-        expect(message).toMatchObject({ channel: 'C1', user: 'U1', thread_ts: '1.2' });
+        expect(message).toMatchObject({ channel: 'C1', user: 'U1' });
+        expect(message.thread_ts).toBeUndefined();
         expect(message.text).toContain('rec1');
         expect(message.text).toContain('2 ssn(s)');
         expect(message.text).toContain('1 api key(s)');
@@ -243,7 +350,7 @@ describe('MessageHandler', () => {
 
       it('leaves the message alone when there is nothing to obfuscate', async () => {
         await handler.handleMessage(event, say);
-        expect(update).not.toHaveBeenCalled();
+        expect(adminDelete).not.toHaveBeenCalled();
       });
     });
 
@@ -255,7 +362,7 @@ describe('MessageHandler', () => {
       it('records the error instead of throwing', async () => {
         storeObfuscationRecord.mockRejectedValue(new Error('write failed'));
         await expect(handler.handleMessage(event, say)).resolves.toBeUndefined();
-        expect(update).not.toHaveBeenCalled();
+        expect(adminDelete).not.toHaveBeenCalled();
         expect(logError).toHaveBeenCalledWith({
           userId: 'U1',
           channelId: 'C1',
@@ -274,7 +381,9 @@ describe('MessageHandler', () => {
   });
 
   describe('handleDismissal', () => {
-    const record = { channelId: 'C1', messageTs: '1.2', severity: 'high', originalContent: 'encrypted-text' };
+    const record = {
+      channelId: 'C1', userId: 'U1', messageTs: '1.2', severity: 'high', originalContent: 'encrypted-text', repostTs: '9.9',
+    };
 
     it('rejects an unknown record', async () => {
       getObfuscationRecord.mockResolvedValue(undefined);
@@ -292,7 +401,8 @@ describe('MessageHandler', () => {
         user: 'U2',
         text: expect.stringContaining('do not have permission'),
       }));
-      expect(update).not.toHaveBeenCalled();
+      expect(postMessage).not.toHaveBeenCalled();
+      expect(botDelete).not.toHaveBeenCalled();
       expect(markObfuscationDismissed).not.toHaveBeenCalled();
     });
 
@@ -301,7 +411,12 @@ describe('MessageHandler', () => {
       canUserDismiss.mockResolvedValue(true);
       await handler.handleDismissal('rec1', 'U2');
       expect(decrypt).toHaveBeenCalledWith('encrypted-text');
-      expect(update).toHaveBeenCalledWith({ channel: 'C1', ts: '1.2', text: 'original text' });
+      expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+        channel: 'C1', text: 'original text', username: 'Ada',
+      }));
+      expect(JSON.stringify(postMessage.mock.calls[0][0].blocks)).toContain('restored by <@U2>');
+      expect(botDelete).toHaveBeenCalledWith({ channel: 'C1', ts: '9.9' });
+      expect(postMessage.mock.invocationCallOrder[0]).toBeLessThan(botDelete.mock.invocationCallOrder[0]);
       expect(markObfuscationDismissed).toHaveBeenCalledWith('rec1', 'U2');
       expect(logDismissal).toHaveBeenCalledWith(expect.objectContaining({
         recordId: 'rec1',
@@ -316,11 +431,21 @@ describe('MessageHandler', () => {
       }));
     });
 
+    it('restores into the original thread and skips the delete when there is no masked copy', async () => {
+      getObfuscationRecord.mockResolvedValue({ ...record, threadTs: '1.0', repostTs: undefined });
+      canUserDismiss.mockResolvedValue(true);
+      await handler.handleDismissal('rec1', 'U2');
+      expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ thread_ts: '1.0' }));
+      expect(botDelete).not.toHaveBeenCalled();
+      expect(markObfuscationDismissed).toHaveBeenCalledWith('rec1', 'U2');
+    });
+
     it('rethrows when the original message cannot be restored', async () => {
       getObfuscationRecord.mockResolvedValue(record);
       canUserDismiss.mockResolvedValue(true);
-      update.mockRejectedValue(new Error('slack down'));
+      postMessage.mockRejectedValue(new Error('slack down'));
       await expect(handler.handleDismissal('rec1', 'U2')).rejects.toThrow('slack down');
+      expect(botDelete).not.toHaveBeenCalled();
       expect(markObfuscationDismissed).not.toHaveBeenCalled();
     });
   });
@@ -389,10 +514,62 @@ describe('MessageHandler', () => {
       getObfuscationRecord.mockResolvedValue({ channelId: 'C1', messageTs: '1.2', severity: 'high', originalContent: 'x' });
       canUserDismiss.mockResolvedValue(allowed);
       if (failure) {
-        update.mockRejectedValue(failure);
+        postMessage.mockRejectedValue(failure);
       }
       await handler.handleDismissal('rec1', 'U2').catch(() => undefined);
       expect(await value(metrics.dismissals, { outcome })).toBe(1);
+    });
+  });
+});
+
+describe('toScannableMessage', () => {
+  const base = { channel: 'C1', user: 'U1', ts: '1.2', text: 'hello' };
+
+  it('passes a new message through', () => {
+    expect(toScannableMessage(base)).toEqual({ ...base, thread_ts: undefined });
+  });
+
+  it('keeps the thread of a reply', () => {
+    expect(toScannableMessage({ ...base, thread_ts: '1.0' })?.thread_ts).toBe('1.0');
+  });
+
+  it.each([
+    ['nothing', undefined],
+    ['a bot message', { ...base, bot_id: 'B1' }],
+    ['a message without text', { ...base, text: '' }],
+    ['a message without a user', { ...base, user: undefined }],
+    ['another subtype', { ...base, subtype: 'channel_join' }],
+  ])('ignores %s', (_name, event) => {
+    expect(toScannableMessage(event)).toBeNull();
+  });
+
+  describe('edits', () => {
+    const edit = (message: object, previous: object = { text: 'before' }) => ({
+      subtype: 'message_changed', channel: 'C1', message, previous_message: previous,
+    });
+
+    it('scans the edited text', () => {
+      expect(toScannableMessage(edit({ user: 'U1', ts: '1.2', text: 'now with a secret', thread_ts: '1.0' }))).toEqual({
+        channel: 'C1', user: 'U1', ts: '1.2', text: 'now with a secret', thread_ts: '1.0',
+      });
+    });
+
+    it.each([
+      ['no message', undefined],
+      ['a bot message', { user: 'U1', ts: '1.2', text: 'x', bot_id: 'B1' }],
+      ['a message with a subtype', { user: 'U1', ts: '1.2', text: 'x', subtype: 'bot_message' }],
+      ['an empty message', { user: 'U1', ts: '1.2', text: '' }],
+      ['a message without a user', { ts: '1.2', text: 'x' }],
+    ])('ignores an edit with %s', (_name, message) => {
+      expect(toScannableMessage(edit(message as object))).toBeNull();
+    });
+
+    it('ignores an edit that leaves the text unchanged, such as an unfurl', () => {
+      expect(toScannableMessage(edit({ user: 'U1', ts: '1.2', text: 'same' }, { text: 'same' }))).toBeNull();
+    });
+
+    it('scans an edit without a previous message', () => {
+      expect(toScannableMessage({ subtype: 'message_changed', channel: 'C1', message: { user: 'U1', ts: '1.2', text: 'x' } })).not.toBeNull();
     });
   });
 });

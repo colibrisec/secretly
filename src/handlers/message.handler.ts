@@ -1,6 +1,5 @@
 import { App, SayFn } from '@slack/bolt';
 import { GenericMessageEvent } from '@slack/types';
-// import { WebClient } from '@slack/web-api';
 import { detectSensitiveData, detectHighEntropyStrings } from '../detectors/patterns';
 import { ObfuscationService } from '../services/obfuscation.service';
 import { AuditService } from '../services/audit.service';
@@ -11,6 +10,57 @@ import { RateLimiter } from '../utils/rate-limiter';
 import { logger } from '../utils/logger';
 import * as metrics from '../utils/metrics';
 
+/** The fields of a Slack message the handler needs. */
+export interface ScannableMessage {
+  channel: string;
+  user: string;
+  ts: string;
+  text: string;
+  thread_ts?: string;
+}
+
+/**
+ * Turns a raw `message` event into something to scan, or null to ignore it.
+ * New messages and edits (`message_changed`) are scanned; bot messages
+ * (including our own reposts) and edits that leave the text alone, such as
+ * link unfurls, are not.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toScannableMessage(event: any): ScannableMessage | null {
+  if (!event || event.bot_id) {
+    return null;
+  }
+  if (event.subtype === undefined) {
+    if (!event.text || !event.user) {
+      return null;
+    }
+    return { channel: event.channel, user: event.user, ts: event.ts, text: event.text, thread_ts: event.thread_ts };
+  }
+  if (event.subtype === 'message_changed') {
+    const message = event.message;
+    if (!message || message.bot_id || message.subtype || !message.text || !message.user) {
+      return null;
+    }
+    if (event.previous_message?.text === message.text) {
+      return null;
+    }
+    return { channel: event.channel, user: message.user, ts: message.ts, text: message.text, thread_ts: message.thread_ts };
+  }
+  return null;
+}
+
+/** Deletes messages on behalf of a workspace admin (user token). */
+export interface AdminClient {
+  chat: { delete(args: { channel: string; ts: string }): Promise<unknown> };
+}
+
+interface AuthorProfile {
+  username?: string;
+  iconUrl?: string;
+}
+
+const PROFILE_TTL_MS = 60 * 60 * 1000;
+
 export class MessageHandler {
   private obfuscationService: ObfuscationService;
   private auditService: AuditService;
@@ -18,7 +68,10 @@ export class MessageHandler {
   private channelConfigService: ChannelConfigService;
   private databaseService: DatabaseService;
   private rateLimiter: RateLimiter;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any;
+  private adminClient: AdminClient;
+  private profiles = new Map<string, { profile: AuthorProfile; expires: number }>();
 
   constructor(
     app: App,
@@ -27,7 +80,8 @@ export class MessageHandler {
     permissionService: PermissionService,
     channelConfigService: ChannelConfigService,
     databaseService: DatabaseService,
-    rateLimiter: RateLimiter
+    rateLimiter: RateLimiter,
+    adminClient: AdminClient
   ) {
     this.obfuscationService = obfuscationService;
     this.auditService = auditService;
@@ -36,6 +90,7 @@ export class MessageHandler {
     this.databaseService = databaseService;
     this.rateLimiter = rateLimiter;
     this.client = app.client;
+    this.adminClient = adminClient;
   }
 
   async handleMessage(event: GenericMessageEvent, _say: SayFn): Promise<void> {
@@ -47,6 +102,7 @@ export class MessageHandler {
       endTimer = metrics.messageDuration.startTimer();
 
       const { channel, user, ts, text } = event as any;
+      const threadTs: string | undefined = (event as any).thread_ts;
 
       const rateLimitCheck = await this.rateLimiter.checkLimit(user, channel);
       if (!rateLimitCheck.allowed) {
@@ -126,21 +182,37 @@ export class MessageHandler {
         obfuscatedContent: obfuscated,
         detectionType: detectionMetadata,
         severity,
-        createdAt: new Date()
+        createdAt: new Date(),
+        threadTs
       });
 
-      await this.client.chat.update({
-        channel,
-        ts,
-        text: obfuscated
-      });
+      // Bots can't edit other people's messages, so remove the original with
+      // the admin token, then repost the masked copy as the author. Delete
+      // first: if the repost fails the secret is still gone.
+      try {
+        await this.adminClient.chat.delete({ channel, ts });
+      } catch (error) {
+        await this.handleRemovalFailure(channel, user, ts, threadTs, error);
+        return;
+      }
+
+      try {
+        const result = await this.postAsAuthor(channel, user, threadTs, obfuscated,
+          `Sent by <@${user}> · sensitive data masked by Secretly`);
+        if (result?.ts) {
+          await this.databaseService.setRepostTs(recordId, result.ts);
+        }
+      } catch (error) {
+        logger.error('Failed to repost masked message:', error);
+        metrics.repostFailures.inc();
+      }
 
       const detectionSummary = this.createDetectionSummary(matches);
       
       await this.client.chat.postEphemeral({
         channel,
         user,
-        thread_ts: ts,
+        ...(threadTs ? { thread_ts: threadTs } : {}),
         text: this.createEphemeralMessage(detectionSummary, recordId),
         blocks: this.createEphemeralBlocks(detectionSummary, recordId, matches)
       });
@@ -203,11 +275,12 @@ export class MessageHandler {
 
       const originalText = this.obfuscationService.decrypt(record.originalContent);
 
-      await this.client.chat.update({
-        channel: record.channelId,
-        ts: record.messageTs,
-        text: originalText
-      });
+      // Post the original back as the author, then remove the masked copy.
+      await this.postAsAuthor(record.channelId, record.userId, record.threadTs, originalText,
+        `Sent by <@${record.userId}> · restored by <@${userId}>`);
+      if (record.repostTs) {
+        await this.client.chat.delete({ channel: record.channelId, ts: record.repostTs });
+      }
 
       await this.databaseService.markObfuscationDismissed(recordId, userId);
 
@@ -232,6 +305,76 @@ export class MessageHandler {
       metrics.dismissals.inc({ outcome: 'error' });
       throw error;
     }
+  }
+
+  private async handleRemovalFailure(
+    channel: string,
+    user: string,
+    ts: string,
+    threadTs: string | undefined,
+    error: unknown
+  ): Promise<void> {
+    // The secret is still visible. Tell the author so they can delete it.
+    logger.error('Failed to delete message containing sensitive data:', error);
+    metrics.removalFailures.inc();
+    await this.auditService.logError({
+      userId: user,
+      channelId: channel,
+      messageTs: ts,
+      error: `Could not remove message: ${error instanceof Error ? error.message : 'unknown error'}`,
+      timestamp: new Date()
+    });
+    await this.client.chat.postEphemeral({
+      channel,
+      user,
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+      text: '⚠️ Your message contains sensitive data and could not be removed automatically. Please delete it now.'
+    });
+  }
+
+  private async postAsAuthor(
+    channel: string,
+    userId: string,
+    threadTs: string | undefined,
+    text: string,
+    attribution: string
+  ): Promise<{ ts?: string } | undefined> {
+    const profile = await this.getAuthorProfile(userId);
+    return this.client.chat.postMessage({
+      channel,
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+      text,
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text } },
+        { type: 'context', elements: [{ type: 'mrkdwn', text: attribution }] }
+      ],
+      unfurl_links: false,
+      unfurl_media: false,
+      // Needs the chat:write.customize scope.
+      ...(profile.username ? { username: profile.username } : {}),
+      ...(profile.iconUrl ? { icon_url: profile.iconUrl } : {})
+    });
+  }
+
+  private async getAuthorProfile(userId: string): Promise<AuthorProfile> {
+    const cached = this.profiles.get(userId);
+    if (cached && cached.expires > Date.now()) {
+      return cached.profile;
+    }
+    let profile: AuthorProfile = {};
+    try {
+      const info = await this.client.users.info({ user: userId });
+      const p = info.user?.profile ?? {};
+      profile = {
+        username: p.display_name || p.real_name || info.user?.name || undefined,
+        iconUrl: p.image_72 || undefined
+      };
+      this.profiles.set(userId, { profile, expires: Date.now() + PROFILE_TTL_MS });
+    } catch (error) {
+      // Fall back to the bot's own name; the attribution line still names the author.
+      logger.warn('Could not look up author profile:', error);
+    }
+    return profile;
   }
 
   private findAllIndexes(text: string, value: string): number[] {

@@ -13,6 +13,8 @@ describe('metrics registry', () => {
       'secretly_dismissals_total',
       'secretly_config_changes_total',
       'secretly_rate_limiter_errors_total',
+      'secretly_removal_failures_total',
+      'secretly_repost_failures_total',
       'process_cpu_seconds_total',
       'nodejs_eventloop_lag_seconds',
     ]) {

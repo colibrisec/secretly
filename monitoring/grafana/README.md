@@ -19,7 +19,7 @@ as a ConfigMap labelled for the Grafana sidecar). It has a stable UID,
 
 | Row | Shows |
 | --- | --- |
-| Overview | Totals for the selected range: messages scanned and obfuscated, sensitive values found, p95 processing time, processing errors, rate limiter (Redis) errors |
+| Overview | Totals for the selected range: messages scanned and obfuscated, sensitive values found, p95 processing time, processing errors, secrets left visible (delete failed) |
 | Detections | Obfuscated messages by severity, detections by type, and range totals for each |
 | Pipeline | Scanned vs skipped (rate limited, channel disabled, user exempted), p50/p95/p99 processing time, errors |
 | Dismissals and configuration | Dismissal requests and config modal submissions by outcome |

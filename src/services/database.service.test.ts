@@ -60,6 +60,7 @@ describe('DatabaseService', () => {
         expect(statements.some(sql => sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`))).toBe(true);
       });
       expect(statements.filter(sql => sql.startsWith('CREATE INDEX IF NOT EXISTS'))).toHaveLength(5);
+      expect(statements.filter(sql => sql.includes('ADD COLUMN IF NOT EXISTS'))).toHaveLength(2);
       expect(logger.info).toHaveBeenCalledWith('Database initialized successfully');
     });
 
@@ -99,8 +100,21 @@ describe('DatabaseService', () => {
         createdAt,
       });
       expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO obfuscation_records'), [
-        'rec1', '1.2', 'C1', 'U1', 'encrypted', 'masked', '[{"type":"ssn"}]', 'high', createdAt,
+        'rec1', '1.2', 'C1', 'U1', 'encrypted', 'masked', '[{"type":"ssn"}]', 'high', createdAt, null,
       ]);
+    });
+
+    it('stores the thread of a reply', async () => {
+      await service.storeObfuscationRecord({
+        id: 'rec2', messageTs: '1.3', channelId: 'C1', userId: 'U1', originalContent: 'e', obfuscatedContent: 'm',
+        detectionType: [], severity: 'low', createdAt: new Date(), threadTs: '1.0',
+      });
+      expect(query.mock.calls[0][1][9]).toBe('1.0');
+    });
+
+    it('records where the masked copy was reposted', async () => {
+      await service.setRepostTs('rec1', '9.9');
+      expect(query).toHaveBeenCalledWith(expect.stringContaining('SET repost_ts = $2'), ['rec1', '9.9']);
     });
 
     it('returns the record for an id in camelCase', async () => {
@@ -108,14 +122,21 @@ describe('DatabaseService', () => {
       query.mockResolvedValue({ rows: [{
         id: 'rec1', message_ts: '1.2', channel_id: 'C1', user_id: 'U1', original_content: 'enc',
         obfuscated_content: 'masked', detection_type: [{ type: 'ssn' }], severity: 'high',
-        created_at: createdAt, dismissed_at: null, dismissed_by: null,
+        created_at: createdAt, dismissed_at: null, dismissed_by: null, thread_ts: '1.0', repost_ts: '9.9',
       }] });
       await expect(service.getObfuscationRecord('rec1')).resolves.toEqual({
         id: 'rec1', messageTs: '1.2', channelId: 'C1', userId: 'U1', originalContent: 'enc',
         obfuscatedContent: 'masked', detectionType: [{ type: 'ssn' }], severity: 'high', createdAt,
-        dismissedAt: undefined, dismissedBy: undefined,
+        dismissedAt: undefined, dismissedBy: undefined, threadTs: '1.0', repostTs: '9.9',
       });
       expect(query).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['rec1']);
+    });
+
+    it('leaves the thread and repost unset when they are null', async () => {
+      query.mockResolvedValue({ rows: [{ id: 'rec1', thread_ts: null, repost_ts: null }] });
+      const record = await service.getObfuscationRecord('rec1');
+      expect(record?.threadTs).toBeUndefined();
+      expect(record?.repostTs).toBeUndefined();
     });
 
     it('returns undefined for an unknown id', async () => {

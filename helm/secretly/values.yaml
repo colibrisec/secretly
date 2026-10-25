@@ -101,6 +101,10 @@ slack:
   botToken: ""  # Required: xoxb-your-bot-token
   appToken: ""  # Required: xapp-your-app-token
   signingSecret: ""  # Required: your-signing-secret
+  # Required: user token (xoxp-) of a workspace admin with the chat:write
+  # scope. Bots can't edit or delete other people's messages, so this token
+  # deletes the original before the bot reposts a masked copy.
+  adminUserToken: ""
 
 # Security Configuration
 security:

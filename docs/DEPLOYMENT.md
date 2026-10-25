@@ -49,6 +49,7 @@ kubectl create secret generic secretly-secrets \
   --from-literal=slack-bot-token="xoxb-your-token" \
   --from-literal=slack-app-token="xapp-your-token" \
   --from-literal=slack-signing-secret="your-secret" \
+  --from-literal=slack-admin-user-token="xoxp-admin-token" \
   --from-literal=encryption-key="$(openssl rand -base64 32)"
 ```
 
@@ -58,6 +59,7 @@ helm install secretly secretly/secretly \
   --set slack.botToken="xoxb-your-token" \
   --set slack.appToken="xapp-your-token" \
   --set slack.signingSecret="your-secret" \
+  --set slack.adminUserToken="xoxp-admin-token" \
   --set security.encryptionKey="your-32-char-key"
 ```
 
@@ -145,7 +147,8 @@ kubectl create secret generic secretly-slack \
   --namespace=secretly \
   --from-literal=bot-token="xoxb-your-bot-token" \
   --from-literal=app-token="xapp-your-app-token" \
-  --from-literal=signing-secret="your-signing-secret"
+  --from-literal=signing-secret="your-signing-secret" \
+  --from-literal=admin-user-token="xoxp-your-admin-user-token"
 
 # Encryption key
 kubectl create secret generic secretly-encryption \
@@ -162,7 +165,8 @@ helm install secretly secretly/secretly \
   --set security.existingSecret=secretly-encryption \
   --set slack.botToken="$(kubectl get secret secretly-slack -o jsonpath='{.data.bot-token}' | base64 -d)" \
   --set slack.appToken="$(kubectl get secret secretly-slack -o jsonpath='{.data.app-token}' | base64 -d)" \
-  --set slack.signingSecret="$(kubectl get secret secretly-slack -o jsonpath='{.data.signing-secret}' | base64 -d)"
+  --set slack.signingSecret="$(kubectl get secret secretly-slack -o jsonpath='{.data.signing-secret}' | base64 -d)" \
+  --set slack.adminUserToken="$(kubectl get secret secretly-slack -o jsonpath='{.data.admin-user-token}' | base64 -d)"
 ```
 
 **Production Installation:**

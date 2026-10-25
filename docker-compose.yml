@@ -56,6 +56,7 @@ services:
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+      SLACK_ADMIN_USER_TOKEN: ${SLACK_ADMIN_USER_TOKEN}
       
       # Database Configuration
       DATABASE_URL: postgresql://secretly_user:${POSTGRES_PASSWORD:-secretly_dev_password}@postgres:5432/secretly

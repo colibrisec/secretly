@@ -66,11 +66,14 @@ A Slack bot that monitors channels for sensitive information and automatically o
 2. Slack sends event to bot
 3. Bot analyzes message for sensitive patterns
 4. If detected:
-   - Update original message (obfuscate)
+   - Store metadata securely (original encrypted)
+   - Delete the original with a workspace admin's user token (bots can't
+     edit or delete other people's messages)
+   - Repost the masked text as the author (`chat:write.customize`)
    - Send ephemeral reply to user
-   - Store metadata securely
-5. User can dismiss if permitted
-6. Audit log captures all actions
+5. User can dismiss if permitted: the original is reposted and the masked copy deleted
+6. Edits (`message_changed`) go through the same flow
+7. Audit log captures all actions
 
 ## Deployment Architecture
 

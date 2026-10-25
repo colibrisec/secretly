@@ -97,6 +97,8 @@ spec:
               value: "/etc/secrets/slack/app-token"
             - name: SLACK_SIGNING_SECRET_FILE
               value: "/etc/secrets/slack/signing-secret"
+            - name: SLACK_ADMIN_USER_TOKEN_FILE
+              value: "/etc/secrets/slack/admin-user-token"
             
             # Security Configuration (from file-mounted secrets)
             - name: ENCRYPTION_KEY_FILE
@@ -220,6 +222,8 @@ spec:
                 path: app-token
               - key: slack-signing-secret
                 path: signing-secret
+              - key: slack-admin-user-token
+                path: admin-user-token
         - name: security-secrets
           secret:
             secretName: {{ include "secretly.fullname" . }}
