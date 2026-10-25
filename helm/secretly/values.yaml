@@ -256,6 +256,11 @@ monitoring:
     interval: 30s
     path: /metrics
     labels: {}
+    # Namespace Prometheus runs in. When the ServiceMonitor is enabled the
+    # NetworkPolicy gets an ingress rule for it so scrapes aren't blocked.
+    prometheusNamespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
 
 # Network Policy
 networkPolicy:

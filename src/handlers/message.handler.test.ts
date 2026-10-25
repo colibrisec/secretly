@@ -8,6 +8,7 @@ import { PermissionService } from '../services/permission.service';
 import { ChannelConfigService } from '../services/channel-config.service';
 import { DatabaseService } from '../services/database.service';
 import { RateLimiter } from '../utils/rate-limiter';
+import * as metrics from '../utils/metrics';
 
 jest.mock('../detectors/patterns');
 jest.mock('../utils/logger', () => ({
@@ -321,6 +322,77 @@ describe('MessageHandler', () => {
       update.mockRejectedValue(new Error('slack down'));
       await expect(handler.handleDismissal('rec1', 'U2')).rejects.toThrow('slack down');
       expect(markObfuscationDismissed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('metrics', () => {
+    const value = async (
+      metric: { get: () => Promise<{ values: Array<{ value: number; labels: object }> }> },
+      labels: Record<string, string> = {},
+    ) => (await metric.get()).values
+      .find(v => Object.entries(labels).every(([k, l]) => (v.labels as Record<string, string>)[k] === l))?.value ?? 0;
+    const histogramCount = async () => (await metrics.messageDuration.get()).values
+      .find(v => (v as { metricName?: string }).metricName === 'secretly_message_processing_duration_seconds_count')?.value ?? 0;
+
+    beforeEach(() => metrics.registry.resetMetrics());
+
+    it('counts scanned, obfuscated and detected values without channel or user labels', async () => {
+      mockedDetectSensitiveData.mockReturnValue([
+        detection('ssn', 'high', '123-45-6789', 10),
+        detection('api_key', 'critical', 'AKIAIOSFODNN7EXAMPLE', 30),
+      ]);
+      await handler.handleMessage(event, say);
+      expect(await value(metrics.messagesScanned)).toBe(1);
+      expect(await value(metrics.messagesObfuscated, { severity: 'critical' })).toBe(1);
+      expect(await value(metrics.detections, { type: 'ssn', severity: 'high' })).toBe(1);
+      expect(await value(metrics.detections, { type: 'api_key', severity: 'critical' })).toBe(1);
+      expect(await histogramCount()).toBe(1);
+      const exposed = await metrics.registry.metrics();
+      expect(exposed).not.toContain('C1');
+      expect(exposed).not.toContain('U1');
+    });
+
+    it('counts a scanned message with no detections without counting an obfuscation', async () => {
+      await handler.handleMessage(event, say);
+      expect(await value(metrics.messagesScanned)).toBe(1);
+      expect((await metrics.messagesObfuscated.get()).values).toHaveLength(0);
+    });
+
+    it.each([
+      ['rate_limited', () => checkLimit.mockResolvedValue({ allowed: false })],
+      ['channel_disabled', () => getChannelConfig.mockResolvedValue({ ...channelConfig, enabled: false })],
+      ['user_exempted', () => isUserExempted.mockResolvedValue(true)],
+    ])('counts a message skipped as %s', async (reason, setup) => {
+      setup();
+      await handler.handleMessage(event, say);
+      expect(await value(metrics.messagesSkipped, { reason })).toBe(1);
+      expect(await value(metrics.messagesScanned)).toBe(0);
+    });
+
+    it('counts processing errors', async () => {
+      getChannelConfig.mockRejectedValue(new Error('db down'));
+      await handler.handleMessage(event, say);
+      expect(await value(metrics.messageErrors)).toBe(1);
+      expect(await histogramCount()).toBe(1);
+    });
+
+    it('does not time ignored bot messages', async () => {
+      await handler.handleMessage({ ...event, subtype: 'bot_message' } as unknown as GenericMessageEvent, say);
+      expect(await histogramCount()).toBe(0);
+    });
+
+    it.each([
+      ['dismissed', true, undefined],
+      ['denied', false, undefined],
+      ['error', true, new Error('slack down')],
+    ])('counts a %s dismissal', async (outcome, allowed, failure) => {
+      getObfuscationRecord.mockResolvedValue({ channelId: 'C1', messageTs: '1.2', severity: 'high', originalContent: 'x' });
+      canUserDismiss.mockResolvedValue(allowed);
+      if (failure) {
+        update.mockRejectedValue(failure);
+      }
+      await handler.handleDismissal('rec1', 'U2').catch(() => undefined);
+      expect(await value(metrics.dismissals, { outcome })).toBe(1);
     });
   });
 });

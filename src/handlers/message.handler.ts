@@ -9,6 +9,7 @@ import { ChannelConfigService } from '../services/channel-config.service';
 import { DatabaseService } from '../services/database.service';
 import { RateLimiter } from '../utils/rate-limiter';
 import { logger } from '../utils/logger';
+import * as metrics from '../utils/metrics';
 
 export class MessageHandler {
   private obfuscationService: ObfuscationService;
@@ -38,29 +39,36 @@ export class MessageHandler {
   }
 
   async handleMessage(event: GenericMessageEvent, _say: SayFn): Promise<void> {
+    let endTimer: (() => number) | undefined;
     try {
       if (!('text' in event) || !event.text || event.subtype === 'bot_message') {
         return;
       }
+      endTimer = metrics.messageDuration.startTimer();
 
       const { channel, user, ts, text } = event as any;
 
       const rateLimitCheck = await this.rateLimiter.checkLimit(user, channel);
       if (!rateLimitCheck.allowed) {
         logger.warn(`Rate limit exceeded for user ${user} in channel ${channel}`);
+        metrics.messagesSkipped.inc({ reason: 'rate_limited' });
         return;
       }
 
       const channelConfig = await this.channelConfigService.getChannelConfig(channel);
       if (!channelConfig.enabled) {
+        metrics.messagesSkipped.inc({ reason: 'channel_disabled' });
         return;
       }
 
       const isExempted = await this.permissionService.isUserExempted(user, channel);
       if (isExempted) {
         logger.info(`User ${user} is exempted from scanning in channel ${channel}`);
+        metrics.messagesSkipped.inc({ reason: 'user_exempted' });
         return;
       }
+
+      metrics.messagesScanned.inc();
 
       const detections = detectSensitiveData(text, channelConfig.enabledDetectors);
       
@@ -107,6 +115,7 @@ export class MessageHandler {
       );
 
       const recordId = this.obfuscationService.generateId();
+      const severity = this.calculateOverallSeverity(matches);
       
       await this.databaseService.storeObfuscationRecord({
         id: recordId,
@@ -116,7 +125,7 @@ export class MessageHandler {
         originalContent: this.obfuscationService.encrypt(text),
         obfuscatedContent: obfuscated,
         detectionType: detectionMetadata,
-        severity: this.calculateOverallSeverity(matches),
+        severity,
         createdAt: new Date()
       });
 
@@ -146,10 +155,16 @@ export class MessageHandler {
         timestamp: new Date()
       });
 
+      for (const m of matches) {
+        metrics.detections.inc({ type: m.type, severity: m.severity });
+      }
+      metrics.messagesObfuscated.inc({ severity });
+
       logger.info(`Obfuscated message from ${user} in ${channel} with ${matches.length} detections`);
 
     } catch (error) {
       logger.error('Error handling message:', error);
+      metrics.messageErrors.inc();
       
       await this.auditService.logError({
         userId: (event as any).user,
@@ -158,6 +173,8 @@ export class MessageHandler {
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date()
       });
+    } finally {
+      endTimer?.();
     }
   }
 
@@ -180,6 +197,7 @@ export class MessageHandler {
           user: userId,
           text: '⚠️ You do not have permission to dismiss this obfuscation.'
         });
+        metrics.dismissals.inc({ outcome: 'denied' });
         return;
       }
 
@@ -207,9 +225,11 @@ export class MessageHandler {
         user: userId,
         text: '✅ Obfuscation has been dismissed and original content restored.'
       });
+      metrics.dismissals.inc({ outcome: 'dismissed' });
 
     } catch (error) {
       logger.error('Error handling dismissal:', error);
+      metrics.dismissals.inc({ outcome: 'error' });
       throw error;
     }
   }

@@ -11,6 +11,7 @@ import { ChannelConfigService } from './services/channel-config.service';
 import { RateLimiter } from './utils/rate-limiter';
 import { logger } from './utils/logger';
 import { validateRequiredSecrets, getRequiredSecret } from './utils/secrets';
+import { registry, configChanges } from './utils/metrics';
 
 dotenv.config({ quiet: true });
 
@@ -245,6 +246,7 @@ async function initializeServices() {
 
     // Re-check on submit: admin status may have changed since the modal opened.
     if (!(await permissionService.isChannelAdmin(userId, channelId))) {
+      configChanges.inc({ outcome: 'denied' });
       await client.chat.postEphemeral({
         channel: channelId,
         user: userId,
@@ -255,6 +257,7 @@ async function initializeServices() {
 
     const rateLimitCheck = await rateLimiter.checkLimit(userId, channelId);
     if (!rateLimitCheck.allowed) {
+      configChanges.inc({ outcome: 'rate_limited' });
       await client.chat.postEphemeral({
         channel: channelId,
         user: userId,
@@ -271,6 +274,8 @@ async function initializeServices() {
       enabledDetectors: detectionTypes
     });
     
+    configChanges.inc({ outcome: 'applied' });
+
     await auditService.logConfigChange({
       userId,
       channelId,
@@ -330,6 +335,12 @@ async function initializeServices() {
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0'
     });
+  });
+
+  // Prometheus scrape endpoint (the Helm ServiceMonitor targets this).
+  healthApp.get('/metrics', async (_req, res) => {
+    res.set('Content-Type', registry.contentType);
+    res.send(await registry.metrics());
   });
 
   healthApp.get('/ready', async (_req, res) => {

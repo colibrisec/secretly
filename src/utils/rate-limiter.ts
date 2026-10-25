@@ -1,6 +1,7 @@
 import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 import { createClient } from 'redis';
 import { logger } from './logger';
+import { rateLimiterErrors } from './metrics';
 
 export interface RateLimiterConfig {
   redisUrl: string;
@@ -70,6 +71,10 @@ export class RateLimiter {
       try {
         await this.globalLimiter.consume('global', 1);
       } catch (rejRes) {
+        // Redis failures reject with an Error, not a RateLimiterRes.
+        if (rejRes instanceof Error) {
+          throw rejRes;
+        }
         return { 
           allowed: false, 
           reason: `Global rate limit exceeded. Retry in ${Math.round((rejRes as RateLimiterRes).msBeforeNext / 1000)} seconds`
@@ -79,6 +84,10 @@ export class RateLimiter {
       try {
         await this.userLimiter.consume(userId, 1);
       } catch (rejRes) {
+        // Redis failures reject with an Error, not a RateLimiterRes.
+        if (rejRes instanceof Error) {
+          throw rejRes;
+        }
         return { 
           allowed: false, 
           reason: `User rate limit exceeded. Retry in ${Math.round((rejRes as RateLimiterRes).msBeforeNext / 1000)} seconds`
@@ -88,6 +97,10 @@ export class RateLimiter {
       try {
         await this.channelLimiter.consume(channelId, 1);
       } catch (rejRes) {
+        // Redis failures reject with an Error, not a RateLimiterRes.
+        if (rejRes instanceof Error) {
+          throw rejRes;
+        }
         return { 
           allowed: false, 
           reason: `Channel rate limit exceeded. Retry in ${Math.round((rejRes as RateLimiterRes).msBeforeNext / 1000)} seconds`
@@ -96,7 +109,9 @@ export class RateLimiter {
 
       return { allowed: true };
     } catch (error) {
+      // Fail open: a Redis outage must not stop messages being scanned.
       logger.error('Error checking rate limit:', error);
+      rateLimiterErrors.inc();
       return { allowed: true };
     }
   }
