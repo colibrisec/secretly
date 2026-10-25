@@ -19,7 +19,7 @@ jobs:
       security-events: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: colibrisec/ojo-action@a96f5b8e59824026140fc96ecc72adcd099f8d24 # main (adds sarif-omit-suppressed)
         with:
           ojo-version: 'v0.2.4'
