@@ -12,9 +12,21 @@ spec:
       {{- include "secretly.selectorLabels" . | nindent 6 }}
   policyTypes:
     {{- toYaml .Values.networkPolicy.policyTypes | nindent 4 }}
-  {{- if .Values.networkPolicy.ingress }}
+  {{- $scrape := and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+  {{- if or .Values.networkPolicy.ingress $scrape }}
   ingress:
-    {{- toYaml .Values.networkPolicy.ingress | nindent 4 }}
+    {{- with .Values.networkPolicy.ingress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $scrape }}
+    # Let Prometheus scrape /metrics
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.monitoring.serviceMonitor.prometheusNamespaceSelector | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+    {{- end }}
   {{- end }}
   {{- if .Values.networkPolicy.egress }}
   egress:

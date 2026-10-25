@@ -2,6 +2,7 @@ import { createClient } from 'redis';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { RateLimiter } from './rate-limiter';
 import { logger } from './logger';
+import { rateLimiterErrors } from './metrics';
 
 jest.mock('redis', () => ({ createClient: jest.fn() }));
 jest.mock('rate-limiter-flexible', () => ({ RateLimiterRedis: jest.fn() }));
@@ -101,6 +102,16 @@ describe('RateLimiter', () => {
         const result = await limiter.checkLimit('U1', 'C1');
         expect(result).toEqual({ allowed: false, reason: 'Channel rate limit exceeded. Retry in 3 seconds' });
       });
+
+      it.each(['rl:global', 'rl:user', 'rl:channel'])(
+        'fails open and counts the error when %s hits a redis error',
+        async (scope) => {
+          rateLimiterErrors.reset();
+          limiters[scope].consume.mockRejectedValue(new Error('ECONNREFUSED'));
+          await expect(limiter.checkLimit('U1', 'C1')).resolves.toEqual({ allowed: true });
+          expect((await rateLimiterErrors.get()).values[0].value).toBe(1);
+        },
+      );
 
       it('allows the request when the limiter fails unexpectedly', async () => {
         limiters['rl:global'].consume.mockRejectedValue(undefined);
