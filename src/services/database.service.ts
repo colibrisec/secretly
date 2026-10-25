@@ -14,6 +14,8 @@ export interface StoredObfuscationRecord {
   createdAt: Date;
   dismissedAt?: Date;
   dismissedBy?: string;
+  threadTs?: string;
+  repostTs?: string;
 }
 
 export interface StoredChannelConfig {
@@ -76,6 +78,9 @@ export class DatabaseService {
         dismissed_at TIMESTAMP,
         dismissed_by VARCHAR(20)
       )`,
+      // Delete-and-repost: where the original lived and where the masked copy went.
+      'ALTER TABLE obfuscation_records ADD COLUMN IF NOT EXISTS thread_ts VARCHAR(20)',
+      'ALTER TABLE obfuscation_records ADD COLUMN IF NOT EXISTS repost_ts VARCHAR(20)',
       'CREATE INDEX IF NOT EXISTS idx_obfuscation_message ON obfuscation_records (channel_id, message_ts)',
       'CREATE INDEX IF NOT EXISTS idx_obfuscation_user ON obfuscation_records (user_id)',
       'CREATE INDEX IF NOT EXISTS idx_obfuscation_created ON obfuscation_records (created_at)',
@@ -134,7 +139,9 @@ export class DatabaseService {
       severity: row.severity,
       createdAt: row.created_at,
       dismissedAt: row.dismissed_at ?? undefined,
-      dismissedBy: row.dismissed_by ?? undefined
+      dismissedBy: row.dismissed_by ?? undefined,
+      threadTs: row.thread_ts ?? undefined,
+      repostTs: row.repost_ts ?? undefined
     };
   }
 
@@ -163,8 +170,8 @@ export class DatabaseService {
   async storeObfuscationRecord(record: any): Promise<void> {
     const query = `
       INSERT INTO obfuscation_records 
-      (id, message_ts, channel_id, user_id, original_content, obfuscated_content, detection_type, severity, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      (id, message_ts, channel_id, user_id, original_content, obfuscated_content, detection_type, severity, created_at, thread_ts)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `;
     
     await this.pool.query(query, [
@@ -176,7 +183,8 @@ export class DatabaseService {
       record.obfuscatedContent,
       JSON.stringify(record.detectionType),
       record.severity,
-      record.createdAt
+      record.createdAt,
+      record.threadTs ?? null
     ]);
   }
 
@@ -184,6 +192,10 @@ export class DatabaseService {
     const query = 'SELECT * FROM obfuscation_records WHERE id = $1';
     const result = await this.pool.query(query, [id]);
     return result.rows[0] ? this.mapObfuscationRow(result.rows[0]) : undefined;
+  }
+
+  async setRepostTs(id: string, repostTs: string): Promise<void> {
+    await this.pool.query('UPDATE obfuscation_records SET repost_ts = $2 WHERE id = $1', [id, repostTs]);
   }
 
   async markObfuscationDismissed(id: string, userId: string): Promise<void> {

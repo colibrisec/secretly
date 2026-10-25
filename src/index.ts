@@ -2,7 +2,8 @@ import { App, LogLevel } from '@slack/bolt';
 import * as dotenv from 'dotenv';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { MessageHandler } from './handlers/message.handler';
+import { WebClient } from '@slack/web-api';
+import { MessageHandler, toScannableMessage } from './handlers/message.handler';
 import { ObfuscationService } from './services/obfuscation.service';
 import { DatabaseService } from './services/database.service';
 import { AuditService } from './services/audit.service';
@@ -24,6 +25,9 @@ const requiredSecrets = [
   'SLACK_BOT_TOKEN',
   'SLACK_APP_TOKEN', 
   'SLACK_SIGNING_SECRET',
+  // A workspace admin's user token (chat:write). Bots can't edit or delete
+  // other people's messages, so this is what removes the original.
+  'SLACK_ADMIN_USER_TOKEN',
   'ENCRYPTION_KEY'
 ];
 
@@ -79,12 +83,15 @@ async function initializeServices() {
     permissionService,
     channelConfigService,
     databaseService,
-    rateLimiter
+    rateLimiter,
+    new WebClient(getRequiredSecret('SLACK_ADMIN_USER_TOKEN'))
   );
 
+  // New messages and edits; bot messages (including our reposts) are skipped.
   app.message(async ({ message, say }) => {
-    if (message.subtype === undefined || message.subtype === 'bot_message') {
-      await messageHandler.handleMessage(message as any, say);
+    const scannable = toScannableMessage(message);
+    if (scannable) {
+      await messageHandler.handleMessage(scannable as any, say);
     }
   });
 

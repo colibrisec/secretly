@@ -65,3 +65,15 @@ export const rateLimiterErrors = new Counter({
   help: 'Rate limiter backend errors (requests are allowed through when this happens)',
   registers: [registry],
 });
+
+export const removalFailures = new Counter({
+  name: 'secretly_removal_failures_total',
+  help: 'Messages with sensitive data that could not be deleted (the secret stays visible)',
+  registers: [registry],
+});
+
+export const repostFailures = new Counter({
+  name: 'secretly_repost_failures_total',
+  help: 'Masked copies that could not be reposted after the original was deleted',
+  registers: [registry],
+});

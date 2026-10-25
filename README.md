@@ -64,6 +64,7 @@ cp .env.example .env
      - `channels:history`
      - `channels:read`
      - `chat:write`
+     - `chat:write.customize` (repost masked messages under the author's name and avatar)
      - `chat:write.public`
      - `commands`
      - `groups:history`
@@ -73,6 +74,15 @@ cp .env.example .env
      - `mpim:history`
      - `mpim:read`
      - `users:read`
+
+   - Add User Token Scopes:
+     - `chat:write`
+   - Install the app as a **workspace admin or owner** and copy the user token
+     (`xoxp-...`) into `SLACK_ADMIN_USER_TOKEN`. Slack doesn't let bots edit
+     or delete other people's messages, so Secretly uses this token to delete
+     a message that contains sensitive data, then the bot reposts a masked copy.
+     Check that admins can delete other members' messages in your workspace's
+     message settings.
 
 3. Enable Event Subscriptions:
    - Subscribe to bot events:
