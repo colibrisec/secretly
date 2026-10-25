@@ -133,8 +133,10 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: colibrisec/ojo-action@a7c5469668eaf34edff10ab3f1119475596c0f2f # v1.1.2
+      - uses: colibrisec/ojo-action@a96f5b8e59824026140fc96ecc72adcd099f8d24 # main (adds sarif-omit-suppressed)
         with:
+          ojo-version: 'v0.2.4'
+          sarif-omit-suppressed: 'true'
           vulnerabilities: 'false'
           secrets: 'false'
           iac: 'false'

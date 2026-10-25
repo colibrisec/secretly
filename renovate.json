@@ -272,6 +272,14 @@
       ],
       "datasourceTemplate": "repology",
       "versioningTemplate": "loose"
+    },
+    {
+      "customType": "regex",
+      "description": "Update the ojo scanner image version passed to ojo-action",
+      "fileMatch": ["^\\.github/workflows/.+\\.ya?ml$"],
+      "matchStrings": ["ojo-version:\\s*'(?<currentValue>v[^']+)'"],
+      "depNameTemplate": "colibrisec/ojo",
+      "datasourceTemplate": "github-releases"
     }
   ],
   "prHeader": "This PR contains dependency updates managed by [Renovate](https://github.com/renovatebot/renovate).",
