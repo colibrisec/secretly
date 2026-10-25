@@ -75,6 +75,16 @@ describe('obfuscateText masks', () => {
     expect(obfuscated).toBe(expectedMask);
   });
 
+  it.each([
+    ['credit_card', '123', '[CARD-REDACTED]'],
+    ['email', 'not-an-email', '[EMAIL-REDACTED]'],
+    ['phone', '12', '[PHONE-REDACTED]'],
+    ['ip_address', '1.2.3', '[IP-REDACTED]'],
+  ])('malformed %s values are fully redacted', (type, value, expectedMask) => {
+    const { obfuscated } = createService().obfuscateText(value, [{ match: value, index: 0, type }]);
+    expect(obfuscated).toBe(expectedMask);
+  });
+
   it('short api keys are fully redacted', () => {
     const { obfuscated } = createService().obfuscateText('abc', [{ match: 'abc', index: 0, type: 'api_key' }]);
     expect(obfuscated).toBe('[KEY-REDACTED]');
