@@ -19,13 +19,13 @@ export class ChannelConfigService {
       const config = await this.databaseService.getChannelConfig(channelId);
       
       return {
-        channelId: config.channel_id || channelId,
+        channelId: config.channelId || channelId,
         enabled: config.enabled ?? true,
-        sensitivityLevel: config.sensitivity_level || 'medium',
-        enabledDetectors: config.enabled_detectors || this.getDefaultDetectors('medium'),
-        detectHighEntropy: config.detect_high_entropy ?? true,
-        entropyThreshold: config.entropy_threshold || 4.5,
-        exemptedUsers: config.exempted_users || []
+        sensitivityLevel: config.sensitivityLevel || 'medium',
+        enabledDetectors: config.enabledDetectors || this.getDefaultDetectors('medium'),
+        detectHighEntropy: config.detectHighEntropy ?? true,
+        entropyThreshold: config.entropyThreshold || 4.5,
+        exemptedUsers: config.exemptedUsers || []
       };
     } catch (error) {
       logger.error('Error getting channel config:', error);

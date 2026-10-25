@@ -2,7 +2,7 @@ describe('logger', () => {
   const originalEnv = process.env;
 
   async function loadLogger(env: Record<string, string | undefined>) {
-    process.env = { ...originalEnv, LOG_LEVEL: undefined, NODE_ENV: undefined, ...env };
+    process.env = { ...originalEnv, LOG_LEVEL: undefined, NODE_ENV: undefined, LOG_DIR: undefined, ...env };
     const add = jest.fn();
     const created = { add };
     const createLogger = jest.fn().mockReturnValue(created);
@@ -60,7 +60,12 @@ describe('logger', () => {
   it('also writes error and combined log files in production', async () => {
     const { File, add } = await loadLogger({ NODE_ENV: 'production' });
     expect(add).toHaveBeenCalledTimes(2);
-    expect(File).toHaveBeenCalledWith(expect.objectContaining({ filename: 'error.log', level: 'error' }));
-    expect(File).toHaveBeenCalledWith(expect.objectContaining({ filename: 'combined.log' }));
+    expect(File).toHaveBeenCalledWith(expect.objectContaining({ filename: 'logs/error.log', level: 'error' }));
+    expect(File).toHaveBeenCalledWith(expect.objectContaining({ filename: 'logs/combined.log' }));
+  });
+
+  it('writes log files under LOG_DIR when it is set', async () => {
+    const { File } = await loadLogger({ NODE_ENV: 'production', LOG_DIR: '/var/log/secretly' });
+    expect(File).toHaveBeenCalledWith(expect.objectContaining({ filename: '/var/log/secretly/error.log' }));
   });
 });

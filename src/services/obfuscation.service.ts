@@ -65,7 +65,18 @@ export class ObfuscationService {
     let obfuscatedText = text;
     const mappings = new Map<string, string>();
     
-    const sortedMatches = [...matches].sort((a, b) => b.index - a.index);
+    // Overlapping matches (e.g. an API key that is also high entropy) would
+    // splice against shifted offsets and garble the text, so keep the first
+    // (longest at a given start) and drop anything overlapping it.
+    const nonOverlapping: typeof matches = [];
+    let lastEnd = -1;
+    for (const m of [...matches].sort((a, b) => a.index - b.index || b.match.length - a.match.length)) {
+      if (m.index >= lastEnd) {
+        nonOverlapping.push(m);
+        lastEnd = m.index + m.match.length;
+      }
+    }
+    const sortedMatches = nonOverlapping.reverse();
 
     for (const { match, index, type } of sortedMatches) {
       const mask = this.createMask(match, type);

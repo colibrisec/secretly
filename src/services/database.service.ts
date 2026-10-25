@@ -1,6 +1,38 @@
-import { Pool } from 'pg';
+import { Pool, QueryResultRow } from 'pg';
 import { logger } from '../utils/logger';
 import { buildDatabaseSsl, stripSslParameters } from '../utils/database-ssl';
+
+export interface StoredObfuscationRecord {
+  id: string;
+  messageTs: string;
+  channelId: string;
+  userId: string;
+  originalContent: string;
+  obfuscatedContent: string;
+  detectionType: unknown;
+  severity: string;
+  createdAt: Date;
+  dismissedAt?: Date;
+  dismissedBy?: string;
+}
+
+export interface StoredChannelConfig {
+  channelId: string;
+  enabled: boolean;
+  sensitivityLevel: string;
+  enabledDetectors: string[] | null;
+  detectHighEntropy: boolean;
+  entropyThreshold: number;
+  exemptedUsers: string[] | null;
+}
+
+export interface UserPermissions {
+  canDismissLow: boolean;
+  canDismissMedium: boolean;
+  canDismissHigh: boolean;
+  canDismissCritical: boolean;
+  isAdmin: boolean;
+}
 
 export class DatabaseService {
   public pool: Pool;
@@ -27,6 +59,9 @@ export class DatabaseService {
   }
 
   private async createTables(): Promise<void> {
+    // Postgres has no inline INDEX clause in CREATE TABLE, so indexes are
+    // created separately. Any failure aborts startup instead of being logged
+    // and ignored, which used to leave the app running without its tables.
     const queries = [
       `CREATE TABLE IF NOT EXISTS obfuscation_records (
         id VARCHAR(32) PRIMARY KEY,
@@ -39,12 +74,12 @@ export class DatabaseService {
         severity VARCHAR(10) NOT NULL,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         dismissed_at TIMESTAMP,
-        dismissed_by VARCHAR(20),
-        INDEX idx_message (channel_id, message_ts),
-        INDEX idx_user (user_id),
-        INDEX idx_created (created_at)
+        dismissed_by VARCHAR(20)
       )`,
-      
+      'CREATE INDEX IF NOT EXISTS idx_obfuscation_message ON obfuscation_records (channel_id, message_ts)',
+      'CREATE INDEX IF NOT EXISTS idx_obfuscation_user ON obfuscation_records (user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_obfuscation_created ON obfuscation_records (created_at)',
+
       `CREATE TABLE IF NOT EXISTS audit_logs (
         id SERIAL PRIMARY KEY,
         action VARCHAR(50) NOT NULL,
@@ -52,11 +87,11 @@ export class DatabaseService {
         channel_id VARCHAR(20),
         record_id VARCHAR(32),
         metadata JSONB,
-        timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
-        INDEX idx_action (action),
-        INDEX idx_timestamp (timestamp)
+        timestamp TIMESTAMP NOT NULL DEFAULT NOW()
       )`,
-      
+      'CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs (action)',
+      'CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs (timestamp)',
+
       `CREATE TABLE IF NOT EXISTS channel_configs (
         channel_id VARCHAR(20) PRIMARY KEY,
         enabled BOOLEAN DEFAULT true,
@@ -68,7 +103,7 @@ export class DatabaseService {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )`,
-      
+
       `CREATE TABLE IF NOT EXISTS user_permissions (
         user_id VARCHAR(20) NOT NULL,
         channel_id VARCHAR(20) NOT NULL,
@@ -82,12 +117,47 @@ export class DatabaseService {
     ];
 
     for (const query of queries) {
-      try {
-        await this.pool.query(query.replace(/INDEX/g, 'CREATE INDEX IF NOT EXISTS'));
-      } catch (error) {
-        logger.error(`Failed to create table: ${error}`);
-      }
+      await this.pool.query(query);
     }
+  }
+
+  // Rows come back from pg in snake_case; callers expect camelCase.
+  private mapObfuscationRow(row: QueryResultRow): StoredObfuscationRecord {
+    return {
+      id: row.id,
+      messageTs: row.message_ts,
+      channelId: row.channel_id,
+      userId: row.user_id,
+      originalContent: row.original_content,
+      obfuscatedContent: row.obfuscated_content,
+      detectionType: row.detection_type,
+      severity: row.severity,
+      createdAt: row.created_at,
+      dismissedAt: row.dismissed_at ?? undefined,
+      dismissedBy: row.dismissed_by ?? undefined
+    };
+  }
+
+  private mapChannelConfigRow(row: QueryResultRow): StoredChannelConfig {
+    return {
+      channelId: row.channel_id,
+      enabled: row.enabled,
+      sensitivityLevel: row.sensitivity_level,
+      enabledDetectors: row.enabled_detectors,
+      detectHighEntropy: row.detect_high_entropy,
+      entropyThreshold: row.entropy_threshold,
+      exemptedUsers: row.exempted_users
+    };
+  }
+
+  private mapPermissionsRow(row: QueryResultRow): UserPermissions {
+    return {
+      canDismissLow: row.can_dismiss_low === true,
+      canDismissMedium: row.can_dismiss_medium === true,
+      canDismissHigh: row.can_dismiss_high === true,
+      canDismissCritical: row.can_dismiss_critical === true,
+      isAdmin: row.is_admin === true
+    };
   }
 
   async storeObfuscationRecord(record: any): Promise<void> {
@@ -113,7 +183,7 @@ export class DatabaseService {
   async getObfuscationRecord(id: string): Promise<any> {
     const query = 'SELECT * FROM obfuscation_records WHERE id = $1';
     const result = await this.pool.query(query, [id]);
-    return result.rows[0];
+    return result.rows[0] ? this.mapObfuscationRow(result.rows[0]) : undefined;
   }
 
   async markObfuscationDismissed(id: string, userId: string): Promise<void> {
@@ -144,7 +214,7 @@ export class DatabaseService {
       return defaultConfig;
     }
     
-    return result.rows[0];
+    return this.mapChannelConfigRow(result.rows[0]);
   }
 
   async createChannelConfig(config: any): Promise<void> {
@@ -182,7 +252,7 @@ export class DatabaseService {
       };
     }
     
-    return result.rows[0];
+    return this.mapPermissionsRow(result.rows[0]);
   }
 
   async setUserPermissions(userId: string, channelId: string, permissions: any): Promise<void> {
@@ -223,11 +293,14 @@ export class DatabaseService {
   }
 
   async cleanupOldRecords(daysToKeep: number): Promise<void> {
+    if (!Number.isInteger(daysToKeep) || daysToKeep < 0) {
+      throw new Error('daysToKeep must be a non-negative integer');
+    }
     const query = `
       DELETE FROM obfuscation_records 
-      WHERE created_at < NOW() - INTERVAL '${daysToKeep} days'
+      WHERE created_at < NOW() - make_interval(days => $1)
     `;
-    await this.pool.query(query);
+    await this.pool.query(query, [daysToKeep]);
   }
 
   async close(): Promise<void> {

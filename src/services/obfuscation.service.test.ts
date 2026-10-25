@@ -111,6 +111,17 @@ describe('obfuscateText', () => {
     expect(obfuscated).toBe('x [SSN-XXX-XX-XXXX] y [CARD-****1111]');
   });
 
+  it('keeps the longest of overlapping matches instead of garbling the text', () => {
+    const key = 'AKIAIOSFODNN7EXAMPLE';
+    const { obfuscated } = createService().obfuscateText(`key ${key} end`, [
+      { match: key, index: 4, type: 'api_key' },
+      { match: key.slice(4), index: 8, type: 'high_entropy' },
+      { match: key, index: 4, type: 'high_entropy' },
+    ]);
+
+    expect(obfuscated).toBe('key [KEY-AKIA...MPLE] end');
+  });
+
   it('returns the text unchanged when there are no matches', () => {
     const { obfuscated, mappings } = createService().obfuscateText('nothing here', []);
     expect(obfuscated).toBe('nothing here');
